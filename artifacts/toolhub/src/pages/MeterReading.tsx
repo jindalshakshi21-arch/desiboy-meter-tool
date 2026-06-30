@@ -8,32 +8,18 @@ import html2canvas from "html2canvas";
 
 type TabType = "kwh" | "md";
 type PanelType = "filters" | "adjustments";
-type ActiveElement = "number" | "unit" | "md1";
+type ActiveElement = "number" | "unit" | "md1" | "mask";
 
 interface FilterState {
-  contrast: number;
-  brightness: number;
-  saturation: number;
-  grayscale: number;
-  sepia: number;
-  invert: number;
-  hueRotate: number;
-  blur: number;
+  contrast: number; brightness: number; saturation: number;
+  grayscale: number; sepia: number; invert: number; hueRotate: number; blur: number;
 }
-
 const DEFAULT_FILTERS: FilterState = {
-  contrast: 100,
-  brightness: 100,
-  saturation: 100,
-  grayscale: 0,
-  sepia: 0,
-  invert: 0,
-  hueRotate: 0,
-  blur: 0,
+  contrast: 100, brightness: 100, saturation: 100,
+  grayscale: 0, sepia: 0, invert: 0, hueRotate: 0, blur: 0,
 };
 
 type VendorConfig = { kwh: string[]; md: string[] };
-
 const VENDOR_IMAGES: Record<string, VendorConfig> = {
   "HPL":                    { kwh: ["/meters/hpl1.jpg"],                            md: ["/meters/hpl2.jpg"] },
   "Landis":                 { kwh: ["/meters/landis.jpg"],                          md: ["/meters/landis.jpg"] },
@@ -58,16 +44,9 @@ const VENDOR_IMAGES: Record<string, VendorConfig> = {
 };
 
 interface SliderRowProps {
-  label: string;
-  value: number;
-  min: number;
-  max: number;
-  step?: number;
-  unit?: string;
-  onChange: (v: number) => void;
-  onReset: () => void;
+  label: string; value: number; min: number; max: number;
+  step?: number; unit?: string; onChange: (v: number) => void; onReset: () => void;
 }
-
 function SliderRow({ label, value, min, max, step = 1, unit = "%", onChange, onReset }: SliderRowProps) {
   return (
     <div className="flex items-center gap-2 py-1">
@@ -88,12 +67,8 @@ function SliderRow({ label, value, min, max, step = 1, unit = "%", onChange, onR
 }
 
 interface TouchState {
-  startX: number;
-  startY: number;
-  startPosX: number;
-  startPosY: number;
-  startDist: number | null;
-  startFontSize: number | null;
+  startX: number; startY: number; startPosX: number; startPosY: number;
+  startDist: number | null; startFontSize: number | null;
 }
 
 export default function MeterReading() {
@@ -107,20 +82,23 @@ export default function MeterReading() {
   const [mdReading, setMdReading] = useState("");
   const [filters, setFilters] = useState<FilterState>({ ...DEFAULT_FILTERS });
   const [imgIndex, setImgIndex] = useState(0);
+  const [imgLoaded, setImgLoaded] = useState(false);
 
-  // ── Number overlay (independent per tab) ──
+  // Number overlays
   const [kwhPos, setKwhPos] = useState({ x: 0, y: 0 });
   const [mdPos, setMdPos] = useState({ x: 0, y: 0 });
   const [kwhFontSize, setKwhFontSize] = useState(22);
   const [mdFontSize, setMdFontSize] = useState(22);
 
-  // ── Unit label overlay (completely independent) ──
+  // Unit label overlays
   const [kwhUnitPos, setKwhUnitPos] = useState({ x: 40, y: 20 });
   const [mdUnitPos, setMdUnitPos] = useState({ x: 40, y: 20 });
   const [kwhUnitSize, setKwhUnitSize] = useState(14);
   const [mdUnitSize, setMdUnitSize] = useState(14);
+  const [showKwhUnit, setShowKwhUnit] = useState(false);
+  const [showMdUnit, setShowMdUnit] = useState(false);
 
-  // ── MD 1 label overlay (independent per tab) ──
+  // MD 1 overlays
   const [kwhMd1Pos, setKwhMd1Pos] = useState({ x: -40, y: 20 });
   const [mdMd1Pos, setMdMd1Pos] = useState({ x: -40, y: 20 });
   const [kwhMd1Size, setKwhMd1Size] = useState(14);
@@ -128,13 +106,18 @@ export default function MeterReading() {
   const [showKwhMd1, setShowKwhMd1] = useState(false);
   const [showMdMd1, setShowMdMd1] = useState(false);
 
-  // ── Which element drag/pinch controls ──
-  const [activeElement, setActiveElement] = useState<ActiveElement>("number");
+  // White mask overlay to cover existing meter text (resets on navigation)
+  const [kwhMaskPos, setKwhMaskPos] = useState({ x: 0, y: 0 });
+  const [mdMaskPos, setMdMaskPos] = useState({ x: 0, y: 0 });
+  const [kwhMaskW, setKwhMaskW] = useState(80);
+  const [mdMaskW, setMdMaskW] = useState(80);
+  const [showKwhMask, setShowKwhMask] = useState(false);
+  const [showMdMask, setShowMdMask] = useState(false);
+  const [maskOpacity, setMaskOpacity] = useState(100);
 
+  const [activeElement, setActiveElement] = useState<ActiveElement>("number");
   const [textColor, setTextColor] = useState("#000000");
   const [textOpacity, setTextOpacity] = useState(100);
-  const [showKwhUnit, setShowKwhUnit] = useState(false);
-  const [showMdUnit, setShowMdUnit] = useState(false);
   const [savingImg, setSavingImg] = useState(false);
   const [whatsappSharing, setWhatsappSharing] = useState(false);
 
@@ -145,7 +128,7 @@ export default function MeterReading() {
   const activeImages = vendorConfig?.[activeTab] ?? [];
   const currentImage = activeImages[imgIndex] ?? null;
 
-  // ── Number element getters ──
+  // Getters
   const activeReading = activeTab === "kwh" ? kwhReading : mdReading;
   const activePos = activeTab === "kwh" ? kwhPos : mdPos;
   const activeFontSize = activeTab === "kwh" ? kwhFontSize : mdFontSize;
@@ -155,57 +138,51 @@ export default function MeterReading() {
   const setShowUnit = activeTab === "kwh" ? setShowKwhUnit : setShowMdUnit;
   const showMd1 = activeTab === "kwh" ? showKwhMd1 : showMdMd1;
   const setShowMd1 = activeTab === "kwh" ? setShowKwhMd1 : setShowMdMd1;
-
-  // ── Unit label element getters ──
+  const showMask = activeTab === "kwh" ? showKwhMask : showMdMask;
+  const setShowMask = activeTab === "kwh" ? setShowKwhMask : setShowMdMask;
+  const activeMaskPos = activeTab === "kwh" ? kwhMaskPos : mdMaskPos;
+  const setActiveMaskPos = activeTab === "kwh" ? setKwhMaskPos : setMdMaskPos;
+  const activeMaskW = activeTab === "kwh" ? kwhMaskW : mdMaskW;
+  const setActiveMaskW = activeTab === "kwh" ? setKwhMaskW : setMdMaskW;
   const activeUnitPos = activeTab === "kwh" ? kwhUnitPos : mdUnitPos;
   const activeUnitSize = activeTab === "kwh" ? kwhUnitSize : mdUnitSize;
   const setActiveUnitPos = activeTab === "kwh" ? setKwhUnitPos : setMdUnitPos;
   const setActiveUnitSize = activeTab === "kwh" ? setKwhUnitSize : setMdUnitSize;
-
-  // ── MD 1 label element getters ──
   const activeMd1Pos = activeTab === "kwh" ? kwhMd1Pos : mdMd1Pos;
   const activeMd1Size = activeTab === "kwh" ? kwhMd1Size : mdMd1Size;
   const setActiveMd1Pos = activeTab === "kwh" ? setKwhMd1Pos : setMdMd1Pos;
   const setActiveMd1Size = activeTab === "kwh" ? setKwhMd1Size : setMdMd1Size;
 
-  // ── Currently controlled element (for d-pad / slider) ──
-  const ctrlPos = activeElement === "number" ? activePos : activeElement === "unit" ? activeUnitPos : activeMd1Pos;
-  const ctrlFontSize = activeElement === "number" ? activeFontSize : activeElement === "unit" ? activeUnitSize : activeMd1Size;
-  const setCtrlPos = activeElement === "number" ? setActivePos : activeElement === "unit" ? setActiveUnitPos : setActiveMd1Pos;
-  const setCtrlFontSize = activeElement === "number" ? setActiveFontSize : activeElement === "unit" ? setActiveUnitSize : setActiveMd1Size;
-  const ctrlFontMax = activeElement === "number" ? 72 : 100;
-  const ctrlColor = activeElement === "number" ? "#FF9933" : activeElement === "unit" ? "#138808" : "#1d4ed8";
+  // Control mappings
+  const ctrlPos = activeElement === "number" ? activePos : activeElement === "unit" ? activeUnitPos : activeElement === "md1" ? activeMd1Pos : activeMaskPos;
+  const ctrlFontSize = activeElement === "number" ? activeFontSize : activeElement === "unit" ? activeUnitSize : activeElement === "md1" ? activeMd1Size : activeMaskW;
+  const setCtrlPos = activeElement === "number" ? setActivePos : activeElement === "unit" ? setActiveUnitPos : activeElement === "md1" ? setActiveMd1Pos : setActiveMaskPos;
+  const setCtrlFontSize = activeElement === "number" ? setActiveFontSize : activeElement === "unit" ? setActiveUnitSize : activeElement === "md1" ? setActiveMd1Size : setActiveMaskW;
+  const ctrlFontMax = activeElement === "number" ? 72 : activeElement === "mask" ? 300 : 100;
+  const ctrlFontLabel = activeElement === "number" ? "Number Size:" : activeElement === "mask" ? "Mask Width:" : activeElement === "unit" ? "Label Size:" : "MD 1 Size:";
+  const ctrlColor = activeElement === "number" ? "#FF9933" : activeElement === "unit" ? "#138808" : activeElement === "md1" ? "#1d4ed8" : "#6b7280";
 
-  // When unit/md1 is turned OFF, reset mode to "number"
-  useEffect(() => {
-    if (!showUnit && activeElement === "unit") setActiveElement("number");
-  }, [showUnit]);
-  useEffect(() => {
-    if (!showMd1 && activeElement === "md1") setActiveElement("number");
-  }, [showMd1]);
+  // Reset active element when overlay hidden
+  useEffect(() => { if (!showUnit && activeElement === "unit") setActiveElement("number"); }, [showUnit]);
+  useEffect(() => { if (!showMd1 && activeElement === "md1") setActiveElement("number"); }, [showMd1]);
+  useEffect(() => { if (!showMask && activeElement === "mask") setActiveElement("number"); }, [showMask]);
 
-  const handleTabChange = (tab: TabType) => {
-    setActiveTab(tab);
-    setImgIndex(0);
-  };
+  // Reset imgLoaded when image changes
+  useEffect(() => { setImgLoaded(false); }, [currentImage]);
+
+  const handleTabChange = (tab: TabType) => { setActiveTab(tab); setImgIndex(0); };
 
   const imageStyle = {
     filter: [
-      `contrast(${filters.contrast}%)`,
-      `brightness(${filters.brightness}%)`,
-      `saturate(${filters.saturation}%)`,
-      `grayscale(${filters.grayscale}%)`,
-      `sepia(${filters.sepia}%)`,
-      `invert(${filters.invert}%)`,
-      `hue-rotate(${filters.hueRotate}deg)`,
-      `blur(${filters.blur}px)`,
+      `contrast(${filters.contrast}%)`, `brightness(${filters.brightness}%)`,
+      `saturate(${filters.saturation}%)`, `grayscale(${filters.grayscale}%)`,
+      `sepia(${filters.sepia}%)`, `invert(${filters.invert}%)`,
+      `hue-rotate(${filters.hueRotate}deg)`, `blur(${filters.blur}px)`,
     ].join(" "),
   };
 
-  const updateFilter = (key: keyof FilterState) => (value: number) =>
-    setFilters((prev) => ({ ...prev, [key]: value }));
-  const resetFilter = (key: keyof FilterState) => () =>
-    setFilters((prev) => ({ ...prev, [key]: DEFAULT_FILTERS[key] }));
+  const updateFilter = (key: keyof FilterState) => (value: number) => setFilters((prev) => ({ ...prev, [key]: value }));
+  const resetFilter = (key: keyof FilterState) => () => setFilters((prev) => ({ ...prev, [key]: DEFAULT_FILTERS[key] }));
 
   const move = (dir: "up" | "down" | "left" | "right") => {
     const step = 8;
@@ -218,31 +195,34 @@ export default function MeterReading() {
   useEffect(() => {
     const el = imgContainerRef.current;
     if (!el) return;
-
     const getPos = () => {
       if (activeElement === "number") return activeTab === "kwh" ? kwhPos : mdPos;
       if (activeElement === "unit") return activeTab === "kwh" ? kwhUnitPos : mdUnitPos;
-      return activeTab === "kwh" ? kwhMd1Pos : mdMd1Pos;
+      if (activeElement === "md1") return activeTab === "kwh" ? kwhMd1Pos : mdMd1Pos;
+      return activeTab === "kwh" ? kwhMaskPos : mdMaskPos;
     };
     const getFs = () => {
       if (activeElement === "number") return activeTab === "kwh" ? kwhFontSize : mdFontSize;
       if (activeElement === "unit") return activeTab === "kwh" ? kwhUnitSize : mdUnitSize;
-      return activeTab === "kwh" ? kwhMd1Size : mdMd1Size;
+      if (activeElement === "md1") return activeTab === "kwh" ? kwhMd1Size : mdMd1Size;
+      return activeTab === "kwh" ? kwhMaskW : mdMaskW;
     };
     const setPos = (p: {x:number;y:number}) => {
-      if (activeElement === "number") { if (activeTab === "kwh") setKwhPos(p); else setMdPos(p); }
-      else if (activeElement === "unit") { if (activeTab === "kwh") setKwhUnitPos(p); else setMdUnitPos(p); }
-      else { if (activeTab === "kwh") setKwhMd1Pos(p); else setMdMd1Pos(p); }
+      if (activeElement === "number") { activeTab === "kwh" ? setKwhPos(p) : setMdPos(p); }
+      else if (activeElement === "unit") { activeTab === "kwh" ? setKwhUnitPos(p) : setMdUnitPos(p); }
+      else if (activeElement === "md1") { activeTab === "kwh" ? setKwhMd1Pos(p) : setMdMd1Pos(p); }
+      else { activeTab === "kwh" ? setKwhMaskPos(p) : setMdMaskPos(p); }
     };
     const setFs = (s: number) => {
-      if (activeElement === "number") { if (activeTab === "kwh") setKwhFontSize(s); else setMdFontSize(s); }
-      else if (activeElement === "unit") { if (activeTab === "kwh") setKwhUnitSize(s); else setMdUnitSize(s); }
-      else { if (activeTab === "kwh") setKwhMd1Size(s); else setMdMd1Size(s); }
+      const max = activeElement === "number" ? 72 : activeElement === "mask" ? 300 : 100;
+      const clamped = Math.min(max, Math.max(10, s));
+      if (activeElement === "number") { activeTab === "kwh" ? setKwhFontSize(clamped) : setMdFontSize(clamped); }
+      else if (activeElement === "unit") { activeTab === "kwh" ? setKwhUnitSize(clamped) : setMdUnitSize(clamped); }
+      else if (activeElement === "md1") { activeTab === "kwh" ? setKwhMd1Size(clamped) : setMdMd1Size(clamped); }
+      else { activeTab === "kwh" ? setKwhMaskW(clamped) : setMdMaskW(clamped); }
     };
-
     const onTouchStart = (e: TouchEvent) => {
-      const pos = getPos();
-      const fs = getFs();
+      const pos = getPos(); const fs = getFs();
       if (e.touches.length === 1) {
         touchRef.current = { startX: e.touches[0].clientX, startY: e.touches[0].clientY, startPosX: pos.x, startPosY: pos.y, startDist: null, startFontSize: null };
       } else if (e.touches.length === 2) {
@@ -250,33 +230,22 @@ export default function MeterReading() {
         touchRef.current = { startX: 0, startY: 0, startPosX: pos.x, startPosY: pos.y, startDist: dist, startFontSize: fs };
       }
     };
-
     const onTouchMove = (e: TouchEvent) => {
       e.preventDefault();
       if (!touchRef.current) return;
-      const sizeMax = activeElement === "number" ? 72 : 100;
       if (e.touches.length === 1 && touchRef.current.startDist === null) {
-        const dx = e.touches[0].clientX - touchRef.current.startX;
-        const dy = e.touches[0].clientY - touchRef.current.startY;
-        setPos({ x: touchRef.current.startPosX + Math.round(dx), y: touchRef.current.startPosY + Math.round(dy) });
+        setPos({ x: touchRef.current.startPosX + Math.round(e.touches[0].clientX - touchRef.current.startX), y: touchRef.current.startPosY + Math.round(e.touches[0].clientY - touchRef.current.startY) });
       } else if (e.touches.length === 2 && touchRef.current.startDist !== null && touchRef.current.startFontSize !== null) {
         const dist = Math.hypot(e.touches[1].clientX - e.touches[0].clientX, e.touches[1].clientY - e.touches[0].clientY);
-        const newSize = Math.min(sizeMax, Math.max(10, Math.round(touchRef.current.startFontSize * dist / touchRef.current.startDist)));
-        setFs(newSize);
+        setFs(Math.round(touchRef.current.startFontSize * dist / touchRef.current.startDist));
       }
     };
-
     const onTouchEnd = () => { touchRef.current = null; };
-
     el.addEventListener("touchstart", onTouchStart, { passive: true });
     el.addEventListener("touchmove", onTouchMove, { passive: false });
     el.addEventListener("touchend", onTouchEnd, { passive: true });
-    return () => {
-      el.removeEventListener("touchstart", onTouchStart);
-      el.removeEventListener("touchmove", onTouchMove);
-      el.removeEventListener("touchend", onTouchEnd);
-    };
-  }, [activeTab, activeElement, kwhPos, mdPos, kwhFontSize, mdFontSize, kwhUnitPos, mdUnitPos, kwhUnitSize, mdUnitSize, kwhMd1Pos, mdMd1Pos, kwhMd1Size, mdMd1Size]);
+    return () => { el.removeEventListener("touchstart", onTouchStart); el.removeEventListener("touchmove", onTouchMove); el.removeEventListener("touchend", onTouchEnd); };
+  }, [activeTab, activeElement, kwhPos, mdPos, kwhFontSize, mdFontSize, kwhUnitPos, mdUnitPos, kwhUnitSize, mdUnitSize, kwhMd1Pos, mdMd1Pos, kwhMd1Size, mdMd1Size, kwhMaskPos, mdMaskPos, kwhMaskW, mdMaskW]);
 
   const { saveReading } = useReadings();
   const [saved, setSaved] = useState(false);
@@ -288,6 +257,9 @@ export default function MeterReading() {
     setKwhUnitSize(14); setMdUnitSize(14);
     setKwhMd1Pos({ x: -40, y: 20 }); setMdMd1Pos({ x: -40, y: 20 });
     setKwhMd1Size(14); setMdMd1Size(14);
+    setKwhMaskPos({ x: 0, y: 0 }); setMdMaskPos({ x: 0, y: 0 });
+    setKwhMaskW(80); setMdMaskW(80);
+    setMaskOpacity(100);
     setTextColor("#000000"); setTextOpacity(100);
     setActiveElement("number");
   };
@@ -340,9 +312,7 @@ export default function MeterReading() {
     color: textColor,
     opacity: textOpacity / 100,
     fontFamily: "'Courier New', monospace",
-    textShadow: textColor === "#000000"
-      ? "0 1px 2px rgba(255,255,255,0.3)"
-      : `0 0 8px ${textColor}cc, 0 1px 3px rgba(0,0,0,0.9)`,
+    textShadow: textColor === "#000000" ? "0 1px 2px rgba(255,255,255,0.3)" : `0 0 8px ${textColor}cc, 0 1px 3px rgba(0,0,0,0.9)`,
     letterSpacing: "0.08em",
     whiteSpace: "nowrap" as const,
     lineHeight: 1,
@@ -383,9 +353,7 @@ export default function MeterReading() {
 
         {/* Input */}
         <div className="mx-4 mt-3">
-          <input
-            type="number"
-            inputMode="decimal"
+          <input type="number" inputMode="decimal"
             placeholder={activeTab === "kwh" ? "kWh reading daalen..." : "MD reading daalen..."}
             value={activeTab === "kwh" ? kwhReading : mdReading}
             onChange={(e) => activeTab === "kwh" ? setKwhReading(e.target.value) : setMdReading(e.target.value)}
@@ -399,27 +367,59 @@ export default function MeterReading() {
             {/* Image with overlays */}
             <div ref={imgContainerRef} className="mx-4 mt-3 rounded-2xl overflow-hidden relative select-none"
               style={{ background: "#111", touchAction: "none" }}>
-              <img src={currentImage} alt={vendor} className="w-full h-auto block" style={imageStyle} draggable={false} />
+
+              {/* Skeleton loader */}
+              {!imgLoaded && (
+                <div className="w-full animate-pulse" style={{ aspectRatio: "4/3", background: "linear-gradient(90deg,#2a2a2a 25%,#3a3a3a 50%,#2a2a2a 75%)", backgroundSize: "200% 100%" }}>
+                  <div className="flex items-center justify-center h-full">
+                    <Loader2 className="w-8 h-8 animate-spin text-orange-400" />
+                  </div>
+                </div>
+              )}
+
+              <img src={currentImage} alt={vendor}
+                className="w-full h-auto block"
+                style={{ ...imageStyle, display: imgLoaded ? "block" : "none" }}
+                draggable={false}
+                onLoad={() => setImgLoaded(true)}
+              />
 
               {/* Reading number overlay */}
-              {activeReading && (
+              {imgLoaded && activeReading && (
                 <span className="absolute pointer-events-none" style={overlayStyle(activePos, activeFontSize)}>
                   {activeReading}
                 </span>
               )}
 
               {/* Unit label overlay */}
-              {showUnit && (
+              {imgLoaded && showUnit && (
                 <span className="absolute pointer-events-none" style={overlayStyle(activeUnitPos, activeUnitSize)}>
                   {activeTab === "kwh" ? "kWh" : "kW"}
                 </span>
               )}
 
               {/* MD 1 label overlay */}
-              {showMd1 && (
+              {imgLoaded && showMd1 && (
                 <span className="absolute pointer-events-none" style={overlayStyle(activeMd1Pos, activeMd1Size)}>
                   MD 1
                 </span>
+              )}
+
+              {/* White mask overlay to hide existing meter text */}
+              {imgLoaded && showMask && (
+                <div className="absolute pointer-events-none"
+                  style={{
+                    top: `calc(50% + ${activeMaskPos.y}px)`,
+                    left: `calc(50% + ${activeMaskPos.x}px)`,
+                    transform: "translate(-50%, -50%)",
+                    width: `${activeMaskW}px`,
+                    height: `${Math.round(activeMaskW * 0.35)}px`,
+                    background: "white",
+                    opacity: maskOpacity / 100,
+                    borderRadius: "3px",
+                    userSelect: "none",
+                  }}
+                />
               )}
             </div>
 
@@ -427,41 +427,40 @@ export default function MeterReading() {
             {activeImages.length > 1 && (
               <div className="flex items-center justify-center gap-3 mt-2">
                 <button onClick={() => setImgIndex((i) => Math.max(0, i - 1))} disabled={imgIndex === 0}
-                  className="w-8 h-8 rounded-full border border-border bg-white flex items-center justify-center disabled:opacity-30 hover:bg-muted transition-colors">
+                  className="w-8 h-8 rounded-full border border-border bg-white flex items-center justify-center disabled:opacity-30">
                   <ChevronLeft className="w-4 h-4" />
                 </button>
                 <span className="text-xs text-muted-foreground">{imgIndex + 1} / {activeImages.length}</span>
                 <button onClick={() => setImgIndex((i) => Math.min(activeImages.length - 1, i + 1))} disabled={imgIndex === activeImages.length - 1}
-                  className="w-8 h-8 rounded-full border border-border bg-white flex items-center justify-center disabled:opacity-30 hover:bg-muted transition-colors">
+                  className="w-8 h-8 rounded-full border border-border bg-white flex items-center justify-center disabled:opacity-30">
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
             )}
 
             {/* Toggle buttons row */}
-            <div className="mx-4 mt-3 flex gap-2">
-              <button
-                onClick={() => setShowUnit((v) => !v)}
-                className="flex-1 py-2 rounded-xl text-xs font-bold border transition-all"
-                style={showUnit
-                  ? { background: "#138808", color: "#fff", borderColor: "#138808" }
-                  : { background: "#f5f5f5", color: "#555", borderColor: "#ddd" }}>
-                {showUnit ? "✓" : "+"} {activeTab === "kwh" ? "kWh" : "kW"} Label
+            <div className="mx-4 mt-3 grid grid-cols-3 gap-2">
+              <button onClick={() => setShowUnit((v) => !v)}
+                className="py-2 rounded-xl text-xs font-bold border transition-all"
+                style={showUnit ? { background: "#138808", color: "#fff", borderColor: "#138808" } : { background: "#f5f5f5", color: "#555", borderColor: "#ddd" }}>
+                {showUnit ? "✓" : "+"} {activeTab === "kwh" ? "kWh" : "kW"}
               </button>
-              <button
-                onClick={() => setShowMd1((v) => !v)}
-                className="flex-1 py-2 rounded-xl text-xs font-bold border transition-all"
-                style={showMd1
-                  ? { background: "#1d4ed8", color: "#fff", borderColor: "#1d4ed8" }
-                  : { background: "#f5f5f5", color: "#555", borderColor: "#ddd" }}>
-                {showMd1 ? "✓" : "+"} MD 1 Label
+              <button onClick={() => setShowMd1((v) => !v)}
+                className="py-2 rounded-xl text-xs font-bold border transition-all"
+                style={showMd1 ? { background: "#1d4ed8", color: "#fff", borderColor: "#1d4ed8" } : { background: "#f5f5f5", color: "#555", borderColor: "#ddd" }}>
+                {showMd1 ? "✓" : "+"} MD 1
+              </button>
+              <button onClick={() => setShowMask((v) => !v)}
+                className="py-2 rounded-xl text-xs font-bold border transition-all"
+                style={showMask ? { background: "#6b7280", color: "#fff", borderColor: "#6b7280" } : { background: "#f5f5f5", color: "#555", borderColor: "#ddd" }}>
+                {showMask ? "✓ Text" : "🫥 Text"}
               </button>
             </div>
 
             {/* Action buttons */}
-            <div className="mx-4 mt-3 flex gap-2">
+            <div className="mx-4 mt-2 flex gap-2">
               <button onClick={handleSaveToGallery} disabled={savingImg}
-                className="w-10 h-10 rounded-xl border border-border bg-white flex items-center justify-center shrink-0 disabled:opacity-40 hover:bg-muted transition-colors">
+                className="w-10 h-10 rounded-xl border border-border bg-white flex items-center justify-center shrink-0 disabled:opacity-40">
                 {savingImg ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
               </button>
               <button onClick={handleWhatsAppShare} disabled={whatsappSharing || savingImg || (!kwhReading && !mdReading)}
@@ -502,7 +501,7 @@ export default function MeterReading() {
                   <SliderRow label="Blur"       value={filters.blur}       min={0} max={20}  step={0.1} unit="px" onChange={updateFilter("blur")} onReset={resetFilter("blur")} />
                 </div>
                 <button onClick={() => setFilters({ ...DEFAULT_FILTERS })}
-                  className="w-full mt-4 py-2.5 rounded-xl text-white text-sm font-semibold active:scale-[0.98] transition-all"
+                  className="w-full mt-4 py-2.5 rounded-xl text-white text-sm font-semibold"
                   style={{ background: "#FF9933" }}>
                   Reset Filters
                 </button>
@@ -511,71 +510,68 @@ export default function MeterReading() {
 
             {activePanel === "adjustments" && (
               <div className="mx-4 mt-3 p-4 rounded-xl border border-border bg-white">
-
                 {/* Element selector */}
-                <div className="flex gap-2 mb-3">
+                <div className="flex gap-1.5 mb-3 flex-wrap">
                   <button onClick={() => setActiveElement("number")}
-                    className="flex-1 py-1 text-xs font-bold rounded-lg border transition-all"
-                    style={activeElement === "number"
-                      ? { background: "#FF9933", color: "#fff", borderColor: "#FF9933" }
-                      : { background: "#f5f5f5", color: "#888", borderColor: "#e0e0e0" }}>
+                    className="flex-1 py-1 text-xs font-bold rounded-lg border transition-all min-w-[60px]"
+                    style={activeElement === "number" ? { background: "#FF9933", color: "#fff", borderColor: "#FF9933" } : { background: "#f5f5f5", color: "#888", borderColor: "#e0e0e0" }}>
                     📊 Number
                   </button>
                   {showUnit && (
                     <button onClick={() => setActiveElement("unit")}
-                      className="flex-1 py-1 text-xs font-bold rounded-lg border transition-all"
-                      style={activeElement === "unit"
-                        ? { background: "#138808", color: "#fff", borderColor: "#138808" }
-                        : { background: "#f5f5f5", color: "#888", borderColor: "#e0e0e0" }}>
+                      className="flex-1 py-1 text-xs font-bold rounded-lg border transition-all min-w-[50px]"
+                      style={activeElement === "unit" ? { background: "#138808", color: "#fff", borderColor: "#138808" } : { background: "#f5f5f5", color: "#888", borderColor: "#e0e0e0" }}>
                       {activeTab === "kwh" ? "kWh" : "kW"}
                     </button>
                   )}
                   {showMd1 && (
                     <button onClick={() => setActiveElement("md1")}
-                      className="flex-1 py-1 text-xs font-bold rounded-lg border transition-all"
-                      style={activeElement === "md1"
-                        ? { background: "#1d4ed8", color: "#fff", borderColor: "#1d4ed8" }
-                        : { background: "#f5f5f5", color: "#888", borderColor: "#e0e0e0" }}>
+                      className="flex-1 py-1 text-xs font-bold rounded-lg border transition-all min-w-[50px]"
+                      style={activeElement === "md1" ? { background: "#1d4ed8", color: "#fff", borderColor: "#1d4ed8" } : { background: "#f5f5f5", color: "#888", borderColor: "#e0e0e0" }}>
                       MD 1
+                    </button>
+                  )}
+                  {showMask && (
+                    <button onClick={() => setActiveElement("mask")}
+                      className="flex-1 py-1 text-xs font-bold rounded-lg border transition-all min-w-[50px]"
+                      style={activeElement === "mask" ? { background: "#6b7280", color: "#fff", borderColor: "#6b7280" } : { background: "#f5f5f5", color: "#888", borderColor: "#e0e0e0" }}>
+                      🫥 Mask
                     </button>
                   )}
                 </div>
 
                 <p className="text-xs font-bold tracking-widest text-muted-foreground text-center mb-1">
                   POSITION — <span style={{ color: ctrlColor }}>
-                    {activeElement === "number" ? `${activeTab === "kwh" ? "kWh" : "MD"} Number` : activeElement === "unit" ? `${activeTab === "kwh" ? "kWh" : "kW"} Label` : "MD 1 Label"}
+                    {activeElement === "number" ? `${activeTab === "kwh" ? "kWh" : "MD"} Number` : activeElement === "unit" ? `${activeTab === "kwh" ? "kWh" : "kW"} Label` : activeElement === "md1" ? "MD 1 Label" : "White Mask"}
                   </span>
                 </p>
                 <p className="text-xs text-muted-foreground text-center mb-4">Arrow buttons ya image pe drag karein</p>
 
                 <div className="flex flex-col items-center gap-2">
-                  <button onClick={() => move("up")} className="w-12 h-12 rounded-xl text-white flex items-center justify-center text-xl font-bold active:scale-95 transition-all shadow"
+                  <button onClick={() => move("up")} className="w-12 h-12 rounded-xl text-white flex items-center justify-center text-xl font-bold active:scale-95 shadow"
                     style={{ background: ctrlColor }}>↑</button>
                   <div className="flex gap-2">
-                    <button onClick={() => move("left")} className="w-12 h-12 rounded-xl text-white flex items-center justify-center text-xl font-bold active:scale-95 transition-all shadow"
+                    <button onClick={() => move("left")} className="w-12 h-12 rounded-xl text-white flex items-center justify-center text-xl font-bold active:scale-95 shadow"
                       style={{ background: ctrlColor }}>←</button>
-                    <button
-                      onClick={() => {
-                        if (activeElement === "number") setActivePos({ x: 0, y: 0 });
-                        else if (activeElement === "unit") setActiveUnitPos({ x: 40, y: 20 });
-                        else setActiveMd1Pos({ x: -40, y: 20 });
-                      }}
-                      className="w-12 h-12 rounded-xl bg-muted border border-border text-foreground flex items-center justify-center hover:bg-border transition-all">
+                    <button onClick={() => {
+                      if (activeElement === "number") setActivePos({ x: 0, y: 0 });
+                      else if (activeElement === "unit") setActiveUnitPos({ x: 40, y: 20 });
+                      else if (activeElement === "md1") setActiveMd1Pos({ x: -40, y: 20 });
+                      else setActiveMaskPos({ x: 0, y: 0 });
+                    }} className="w-12 h-12 rounded-xl bg-muted border border-border text-foreground flex items-center justify-center">
                       <RotateCcw className="w-4 h-4" />
                     </button>
-                    <button onClick={() => move("right")} className="w-12 h-12 rounded-xl text-white flex items-center justify-center text-xl font-bold active:scale-95 transition-all shadow"
+                    <button onClick={() => move("right")} className="w-12 h-12 rounded-xl text-white flex items-center justify-center text-xl font-bold active:scale-95 shadow"
                       style={{ background: ctrlColor }}>→</button>
                   </div>
-                  <button onClick={() => move("down")} className="w-12 h-12 rounded-xl text-white flex items-center justify-center text-xl font-bold active:scale-95 transition-all shadow"
+                  <button onClick={() => move("down")} className="w-12 h-12 rounded-xl text-white flex items-center justify-center text-xl font-bold active:scale-95 shadow"
                     style={{ background: ctrlColor }}>↓</button>
                 </div>
 
                 <div className="mt-5 flex flex-col gap-3">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-foreground w-24 shrink-0">
-                      {activeElement === "number" ? "Number Size:" : activeElement === "unit" ? "Label Size:" : "MD 1 Size:"}
-                    </span>
-                    <button onClick={() => setCtrlFontSize((s) => Math.max(10, s - 2))} className="w-6 h-6 rounded border border-border bg-white text-xs font-bold flex items-center justify-center hover:bg-muted transition-colors shrink-0">-</button>
+                    <span className="text-xs font-medium text-foreground w-24 shrink-0">{ctrlFontLabel}</span>
+                    <button onClick={() => setCtrlFontSize((s) => Math.max(10, s - 2))} className="w-6 h-6 rounded border border-border bg-white text-xs font-bold flex items-center justify-center shrink-0">-</button>
                     <div className="flex-1">
                       <input type="range" min={10} max={ctrlFontMax} step={1} value={ctrlFontSize}
                         onChange={(e) => setCtrlFontSize(Number(e.target.value))}
@@ -583,33 +579,50 @@ export default function MeterReading() {
                         style={{ background: `linear-gradient(to right, ${ctrlColor} ${((ctrlFontSize - 10) / (ctrlFontMax - 10)) * 100}%, #e5e7eb ${((ctrlFontSize - 10) / (ctrlFontMax - 10)) * 100}%)` }}
                       />
                     </div>
-                    <button onClick={() => setCtrlFontSize((s) => Math.min(ctrlFontMax, s + 2))} className="w-6 h-6 rounded border border-border bg-white text-xs font-bold flex items-center justify-center hover:bg-muted transition-colors shrink-0">+</button>
+                    <button onClick={() => setCtrlFontSize((s) => Math.min(ctrlFontMax, s + 2))} className="w-6 h-6 rounded border border-border bg-white text-xs font-bold flex items-center justify-center shrink-0">+</button>
                     <span className="w-10 text-xs text-muted-foreground text-right shrink-0">{ctrlFontSize}px</span>
                   </div>
 
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs font-medium text-foreground w-24 shrink-0">Text Color:</span>
-                    <input type="color" value={textColor} onChange={(e) => setTextColor(e.target.value)}
-                      className="w-8 h-8 rounded-lg border border-border cursor-pointer" />
-                    <span className="text-xs text-muted-foreground">{textColor}</span>
-                    <button onClick={() => setTextColor("#000000")} className="text-xs text-muted-foreground hover:text-foreground ml-auto">Reset</button>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-foreground w-24 shrink-0">Opacity:</span>
-                    <div className="flex-1">
-                      <input type="range" min={10} max={100} step={5} value={textOpacity}
-                        onChange={(e) => setTextOpacity(Number(e.target.value))}
-                        className="w-full h-1.5 appearance-none rounded-full cursor-pointer"
-                        style={{ background: `linear-gradient(to right, #FF9933 ${textOpacity}%, #e5e7eb ${textOpacity}%)` }}
-                      />
+                  {activeElement === "mask" && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-foreground w-24 shrink-0">Mask Opacity:</span>
+                      <div className="flex-1">
+                        <input type="range" min={10} max={100} step={5} value={maskOpacity}
+                          onChange={(e) => setMaskOpacity(Number(e.target.value))}
+                          className="w-full h-1.5 appearance-none rounded-full cursor-pointer"
+                          style={{ background: `linear-gradient(to right, #6b7280 ${maskOpacity}%, #e5e7eb ${maskOpacity}%)` }}
+                        />
+                      </div>
+                      <span className="w-10 text-xs text-muted-foreground text-right shrink-0">{maskOpacity}%</span>
                     </div>
-                    <span className="w-10 text-xs text-muted-foreground text-right shrink-0">{textOpacity}%</span>
-                  </div>
+                  )}
+
+                  {activeElement !== "mask" && (
+                    <>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs font-medium text-foreground w-24 shrink-0">Text Color:</span>
+                        <input type="color" value={textColor} onChange={(e) => setTextColor(e.target.value)}
+                          className="w-8 h-8 rounded-lg border border-border cursor-pointer" />
+                        <span className="text-xs text-muted-foreground">{textColor}</span>
+                        <button onClick={() => setTextColor("#000000")} className="text-xs text-muted-foreground hover:text-foreground ml-auto">Reset</button>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium text-foreground w-24 shrink-0">Opacity:</span>
+                        <div className="flex-1">
+                          <input type="range" min={10} max={100} step={5} value={textOpacity}
+                            onChange={(e) => setTextOpacity(Number(e.target.value))}
+                            className="w-full h-1.5 appearance-none rounded-full cursor-pointer"
+                            style={{ background: `linear-gradient(to right, #FF9933 ${textOpacity}%, #e5e7eb ${textOpacity}%)` }}
+                          />
+                        </div>
+                        <span className="w-10 text-xs text-muted-foreground text-right shrink-0">{textOpacity}%</span>
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 <button onClick={resetAdjustments}
-                  className="w-full mt-4 py-2.5 rounded-xl border border-border text-foreground text-sm font-semibold hover:bg-muted transition-all active:scale-[0.98]">
+                  className="w-full mt-4 py-2.5 rounded-xl border border-border text-foreground text-sm font-semibold hover:bg-muted transition-all">
                   Reset All Adjustments
                 </button>
               </div>
