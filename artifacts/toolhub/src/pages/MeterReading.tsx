@@ -8,7 +8,7 @@ import html2canvas from "html2canvas";
 
 type TabType = "kwh" | "md";
 type PanelType = "filters" | "adjustments";
-type ActiveElement = "number" | "unit";
+type ActiveElement = "number" | "unit" | "md1";
 
 interface FilterState {
   contrast: number;
@@ -120,6 +120,14 @@ export default function MeterReading() {
   const [kwhUnitSize, setKwhUnitSize] = useState(14);
   const [mdUnitSize, setMdUnitSize] = useState(14);
 
+  // ── MD 1 label overlay (independent per tab) ──
+  const [kwhMd1Pos, setKwhMd1Pos] = useState({ x: -40, y: 20 });
+  const [mdMd1Pos, setMdMd1Pos] = useState({ x: -40, y: 20 });
+  const [kwhMd1Size, setKwhMd1Size] = useState(14);
+  const [mdMd1Size, setMdMd1Size] = useState(14);
+  const [showKwhMd1, setShowKwhMd1] = useState(false);
+  const [showMdMd1, setShowMdMd1] = useState(false);
+
   // ── Which element drag/pinch controls ──
   const [activeElement, setActiveElement] = useState<ActiveElement>("number");
 
@@ -145,6 +153,8 @@ export default function MeterReading() {
   const setActiveFontSize = activeTab === "kwh" ? setKwhFontSize : setMdFontSize;
   const showUnit = activeTab === "kwh" ? showKwhUnit : showMdUnit;
   const setShowUnit = activeTab === "kwh" ? setShowKwhUnit : setShowMdUnit;
+  const showMd1 = activeTab === "kwh" ? showKwhMd1 : showMdMd1;
+  const setShowMd1 = activeTab === "kwh" ? setShowKwhMd1 : setShowMdMd1;
 
   // ── Unit label element getters ──
   const activeUnitPos = activeTab === "kwh" ? kwhUnitPos : mdUnitPos;
@@ -152,17 +162,27 @@ export default function MeterReading() {
   const setActiveUnitPos = activeTab === "kwh" ? setKwhUnitPos : setMdUnitPos;
   const setActiveUnitSize = activeTab === "kwh" ? setKwhUnitSize : setMdUnitSize;
 
-  // ── Currently controlled element (for d-pad / slider) ──
-  const ctrlPos = activeElement === "number" ? activePos : activeUnitPos;
-  const ctrlFontSize = activeElement === "number" ? activeFontSize : activeUnitSize;
-  const setCtrlPos = activeElement === "number" ? setActivePos : setActiveUnitPos;
-  const setCtrlFontSize = activeElement === "number" ? setActiveFontSize : setActiveUnitSize;
-  const ctrlFontMax = activeElement === "number" ? 72 : 100;
+  // ── MD 1 label element getters ──
+  const activeMd1Pos = activeTab === "kwh" ? kwhMd1Pos : mdMd1Pos;
+  const activeMd1Size = activeTab === "kwh" ? kwhMd1Size : mdMd1Size;
+  const setActiveMd1Pos = activeTab === "kwh" ? setKwhMd1Pos : setMdMd1Pos;
+  const setActiveMd1Size = activeTab === "kwh" ? setKwhMd1Size : setMdMd1Size;
 
-  // When unit is turned OFF, reset mode to "number"
+  // ── Currently controlled element (for d-pad / slider) ──
+  const ctrlPos = activeElement === "number" ? activePos : activeElement === "unit" ? activeUnitPos : activeMd1Pos;
+  const ctrlFontSize = activeElement === "number" ? activeFontSize : activeElement === "unit" ? activeUnitSize : activeMd1Size;
+  const setCtrlPos = activeElement === "number" ? setActivePos : activeElement === "unit" ? setActiveUnitPos : setActiveMd1Pos;
+  const setCtrlFontSize = activeElement === "number" ? setActiveFontSize : activeElement === "unit" ? setActiveUnitSize : setActiveMd1Size;
+  const ctrlFontMax = activeElement === "number" ? 72 : 100;
+  const ctrlColor = activeElement === "number" ? "#FF9933" : activeElement === "unit" ? "#138808" : "#1d4ed8";
+
+  // When unit/md1 is turned OFF, reset mode to "number"
   useEffect(() => {
-    if (!showUnit) setActiveElement("number");
+    if (!showUnit && activeElement === "unit") setActiveElement("number");
   }, [showUnit]);
+  useEffect(() => {
+    if (!showMd1 && activeElement === "md1") setActiveElement("number");
+  }, [showMd1]);
 
   const handleTabChange = (tab: TabType) => {
     setActiveTab(tab);
@@ -199,29 +219,35 @@ export default function MeterReading() {
     const el = imgContainerRef.current;
     if (!el) return;
 
-    const onTouchStart = (e: TouchEvent) => {
-      const pos = activeElement === "number"
-        ? (activeTab === "kwh" ? kwhPos : mdPos)
-        : (activeTab === "kwh" ? kwhUnitPos : mdUnitPos);
-      const fs = activeElement === "number"
-        ? (activeTab === "kwh" ? kwhFontSize : mdFontSize)
-        : (activeTab === "kwh" ? kwhUnitSize : mdUnitSize);
+    const getPos = () => {
+      if (activeElement === "number") return activeTab === "kwh" ? kwhPos : mdPos;
+      if (activeElement === "unit") return activeTab === "kwh" ? kwhUnitPos : mdUnitPos;
+      return activeTab === "kwh" ? kwhMd1Pos : mdMd1Pos;
+    };
+    const getFs = () => {
+      if (activeElement === "number") return activeTab === "kwh" ? kwhFontSize : mdFontSize;
+      if (activeElement === "unit") return activeTab === "kwh" ? kwhUnitSize : mdUnitSize;
+      return activeTab === "kwh" ? kwhMd1Size : mdMd1Size;
+    };
+    const setPos = (p: {x:number;y:number}) => {
+      if (activeElement === "number") { if (activeTab === "kwh") setKwhPos(p); else setMdPos(p); }
+      else if (activeElement === "unit") { if (activeTab === "kwh") setKwhUnitPos(p); else setMdUnitPos(p); }
+      else { if (activeTab === "kwh") setKwhMd1Pos(p); else setMdMd1Pos(p); }
+    };
+    const setFs = (s: number) => {
+      if (activeElement === "number") { if (activeTab === "kwh") setKwhFontSize(s); else setMdFontSize(s); }
+      else if (activeElement === "unit") { if (activeTab === "kwh") setKwhUnitSize(s); else setMdUnitSize(s); }
+      else { if (activeTab === "kwh") setKwhMd1Size(s); else setMdMd1Size(s); }
+    };
 
+    const onTouchStart = (e: TouchEvent) => {
+      const pos = getPos();
+      const fs = getFs();
       if (e.touches.length === 1) {
-        touchRef.current = {
-          startX: e.touches[0].clientX, startY: e.touches[0].clientY,
-          startPosX: pos.x, startPosY: pos.y,
-          startDist: null, startFontSize: null,
-        };
+        touchRef.current = { startX: e.touches[0].clientX, startY: e.touches[0].clientY, startPosX: pos.x, startPosY: pos.y, startDist: null, startFontSize: null };
       } else if (e.touches.length === 2) {
-        const dist = Math.hypot(
-          e.touches[1].clientX - e.touches[0].clientX,
-          e.touches[1].clientY - e.touches[0].clientY,
-        );
-        touchRef.current = {
-          startX: 0, startY: 0, startPosX: pos.x, startPosY: pos.y,
-          startDist: dist, startFontSize: fs,
-        };
+        const dist = Math.hypot(e.touches[1].clientX - e.touches[0].clientX, e.touches[1].clientY - e.touches[0].clientY);
+        touchRef.current = { startX: 0, startY: 0, startPosX: pos.x, startPosY: pos.y, startDist: dist, startFontSize: fs };
       }
     };
 
@@ -229,24 +255,14 @@ export default function MeterReading() {
       e.preventDefault();
       if (!touchRef.current) return;
       const sizeMax = activeElement === "number" ? 72 : 100;
-
       if (e.touches.length === 1 && touchRef.current.startDist === null) {
         const dx = e.touches[0].clientX - touchRef.current.startX;
         const dy = e.touches[0].clientY - touchRef.current.startY;
-        const newPos = { x: touchRef.current.startPosX + Math.round(dx), y: touchRef.current.startPosY + Math.round(dy) };
-        if (activeElement === "number") {
-          if (activeTab === "kwh") setKwhPos(newPos); else setMdPos(newPos);
-        } else {
-          if (activeTab === "kwh") setKwhUnitPos(newPos); else setMdUnitPos(newPos);
-        }
+        setPos({ x: touchRef.current.startPosX + Math.round(dx), y: touchRef.current.startPosY + Math.round(dy) });
       } else if (e.touches.length === 2 && touchRef.current.startDist !== null && touchRef.current.startFontSize !== null) {
         const dist = Math.hypot(e.touches[1].clientX - e.touches[0].clientX, e.touches[1].clientY - e.touches[0].clientY);
         const newSize = Math.min(sizeMax, Math.max(10, Math.round(touchRef.current.startFontSize * dist / touchRef.current.startDist)));
-        if (activeElement === "number") {
-          if (activeTab === "kwh") setKwhFontSize(newSize); else setMdFontSize(newSize);
-        } else {
-          if (activeTab === "kwh") setKwhUnitSize(newSize); else setMdUnitSize(newSize);
-        }
+        setFs(newSize);
       }
     };
 
@@ -260,7 +276,7 @@ export default function MeterReading() {
       el.removeEventListener("touchmove", onTouchMove);
       el.removeEventListener("touchend", onTouchEnd);
     };
-  }, [activeTab, activeElement, kwhPos, mdPos, kwhFontSize, mdFontSize, kwhUnitPos, mdUnitPos, kwhUnitSize, mdUnitSize]);
+  }, [activeTab, activeElement, kwhPos, mdPos, kwhFontSize, mdFontSize, kwhUnitPos, mdUnitPos, kwhUnitSize, mdUnitSize, kwhMd1Pos, mdMd1Pos, kwhMd1Size, mdMd1Size]);
 
   const { saveReading } = useReadings();
   const [saved, setSaved] = useState(false);
@@ -270,6 +286,8 @@ export default function MeterReading() {
     setKwhFontSize(22); setMdFontSize(22);
     setKwhUnitPos({ x: 40, y: 20 }); setMdUnitPos({ x: 40, y: 20 });
     setKwhUnitSize(14); setMdUnitSize(14);
+    setKwhMd1Pos({ x: -40, y: 20 }); setMdMd1Pos({ x: -40, y: 20 });
+    setKwhMd1Size(14); setMdMd1Size(14);
     setTextColor("#000000"); setTextOpacity(100);
     setActiveElement("number");
   };
@@ -285,18 +303,12 @@ export default function MeterReading() {
     if (!imgContainerRef.current) return;
     setSavingImg(true);
     try {
-      const canvas = await html2canvas(imgContainerRef.current, {
-        useCORS: true,
-        scale: 2,
-        backgroundColor: null,
-      });
+      const canvas = await html2canvas(imgContainerRef.current, { useCORS: true, scale: 2, backgroundColor: null });
       const link = document.createElement("a");
       link.download = `${vendor}_${activeTab}_${Date.now()}.png`;
       link.href = canvas.toDataURL("image/png");
       link.click();
-    } catch (err) {
-      console.error("Save failed", err);
-    }
+    } catch (err) { console.error("Save failed", err); }
     setSavingImg(false);
   };
 
@@ -304,11 +316,7 @@ export default function MeterReading() {
     if (!imgContainerRef.current) return;
     setWhatsappSharing(true);
     try {
-      const canvas = await html2canvas(imgContainerRef.current, {
-        useCORS: true,
-        scale: 2,
-        backgroundColor: null,
-      });
+      const canvas = await html2canvas(imgContainerRef.current, { useCORS: true, scale: 2, backgroundColor: null });
       canvas.toBlob(async (blob) => {
         if (!blob) { setWhatsappSharing(false); return; }
         const file = new File([blob], `meter_${activeTab}.png`, { type: "image/png" });
@@ -321,9 +329,7 @@ export default function MeterReading() {
         }
         setWhatsappSharing(false);
       }, "image/png");
-    } catch {
-      setWhatsappSharing(false);
-    }
+    } catch { setWhatsappSharing(false); }
   };
 
   const overlayStyle = (pos: { x: number; y: number }, fontSize: number) => ({
@@ -347,354 +353,281 @@ export default function MeterReading() {
   return (
     <div className="app-container flex flex-col">
       <WarningBanner />
-      <header
-        className="flex items-center justify-between px-4 py-3 sticky top-0 z-10"
-        style={{ background: "linear-gradient(135deg,#FF9933 0%,#e8831a 100%)" }}
-      >
+      <header className="flex items-center justify-between px-4 py-3 sticky top-0 z-10"
+        style={{ background: "linear-gradient(135deg,#FF9933 0%,#e8831a 100%)" }}>
         <button onClick={() => navigate("/")} className="flex items-center gap-1 text-white text-sm font-bold">
           <ChevronLeft className="w-4 h-4" /><span>DESIBOY</span>
         </button>
         <span className="text-xs font-semibold text-white/80 truncate max-w-[120px]">{vendor}</span>
-        <button onClick={() => navigate("/history")} className="text-xs text-white font-bold hover:underline">
-          History
-        </button>
+        <button onClick={() => navigate("/history")} className="text-xs text-white font-bold hover:underline">History</button>
       </header>
+
       <div className="flex h-1 shrink-0">
         <div className="flex-1" style={{ background: "#FF9933" }} />
         <div className="flex-1" style={{ background: "#FFFFFF" }} />
         <div className="flex-1" style={{ background: "#138808" }} />
       </div>
 
-      <div className="flex border-b border-border bg-white">
-        {(["kwh", "md"] as TabType[]).map((tab) => (
-          <button key={tab} onClick={() => handleTabChange(tab)}
-            className={cn("flex-1 py-3 text-sm font-semibold text-center transition-colors",
-              activeTab === tab
-                ? "border-b-2"
-                : "text-muted-foreground")}
-            style={activeTab === tab ? { color: "#FF9933", borderColor: "#FF9933" } : {}}>
-            {tab === "kwh" ? "kWh Reading" : "MD Reading"}
-          </button>
-        ))}
-      </div>
-
       <div className="flex-1 overflow-y-auto pb-6">
-        {/* Reading input + unit toggle */}
-        <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-white">
-          <label className="text-sm font-medium text-foreground whitespace-nowrap shrink-0">
-            {activeTab === "kwh" ? "kWh" : "MD"}:
-          </label>
-          <input
-            type="number"
-            placeholder={activeTab === "kwh" ? "e.g., 12345" : "e.g., 12.34"}
-            value={activeReading}
-            onChange={(e) => activeTab === "kwh" ? setKwhReading(e.target.value) : setMdReading(e.target.value)}
-            className="flex-1 border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-400 transition-colors"
-          />
-          <button
-            onClick={() => setShowUnit((v) => !v)}
-            className="shrink-0 px-1.5 py-0.5 rounded text-[10px] font-bold border transition-all leading-tight"
-            style={showUnit
-              ? { background: "#FF9933", color: "#fff", borderColor: "#FF9933" }
-              : { background: "#f5f5f5", color: "#aaa", borderColor: "#e0e0e0" }}
-          >
-            {activeTab === "kwh" ? "kWh" : "kW"}
-          </button>
-        </div>
-
-        <p className="mx-4 mt-1.5 mb-0 text-[11px] text-muted-foreground">
-          💡 <strong>{activeTab === "kwh" ? "kWh" : "kW"} button</strong>{" "}
-          {showUnit
-            ? "ON — unit label alag drag/pinch se control hoga"
-            : "OFF — sirf number dikhega"}
-        </p>
-
-        <div className="mx-4 my-2">
-          {currentImage ? (
-            <>
-              {/* Element mode selector — shown only when unit is ON */}
-              {showUnit && (
-                <div className="flex gap-2 mb-2">
-                  <button
-                    onClick={() => setActiveElement("number")}
-                    className="flex-1 py-1.5 text-xs font-bold rounded-lg border transition-all"
-                    style={activeElement === "number"
-                      ? { background: "#FF9933", color: "#fff", borderColor: "#FF9933" }
-                      : { background: "#fff", color: "#888", borderColor: "#e0e0e0" }}
-                  >
-                    📊 Number Control
-                  </button>
-                  <button
-                    onClick={() => setActiveElement("unit")}
-                    className="flex-1 py-1.5 text-xs font-bold rounded-lg border transition-all"
-                    style={activeElement === "unit"
-                      ? { background: "#138808", color: "#fff", borderColor: "#138808" }
-                      : { background: "#fff", color: "#888", borderColor: "#e0e0e0" }}
-                  >
-                    {activeTab === "kwh" ? "kWh" : "kW"} Label Control
-                  </button>
-                </div>
-              )}
-
-              <p className="text-[11px] text-muted-foreground text-center mb-1.5">
-                {showUnit
-                  ? activeElement === "number"
-                    ? "👆 Number drag → hilao  |  🤏 Pinch → size badlo"
-                    : `👆 ${activeTab === "kwh" ? "kWh" : "kW"} label drag → hilao  |  🤏 Pinch → size badlo`
-                  : "👆 Image pe drag → text hilega  |  🤏 Pinch → size badlega"}
-              </p>
-
-              <div
-                ref={imgContainerRef}
-                className="relative rounded-2xl overflow-hidden select-none"
-                style={{ background: "#111", touchAction: "none", cursor: "move" }}
-              >
-                <img
-                  src={currentImage}
-                  alt={`${vendor} meter`}
-                  className="w-full object-cover rounded-2xl"
-                  style={imageStyle}
-                  draggable={false}
-                />
-
-                {/* ── kWh Number overlay ── */}
-                {kwhReading && activeTab === "kwh" && (
-                  <div className="absolute pointer-events-none" style={overlayStyle(kwhPos, kwhFontSize)}>
-                    {kwhReading}
-                  </div>
-                )}
-
-                {/* ── kWh Unit label overlay (independent) ── */}
-                {kwhReading && showKwhUnit && activeTab === "kwh" && (
-                  <div className="absolute pointer-events-none" style={overlayStyle(kwhUnitPos, kwhUnitSize)}>
-                    kWh
-                  </div>
-                )}
-
-                {/* ── MD Number overlay ── */}
-                {mdReading && activeTab === "md" && (
-                  <div className="absolute pointer-events-none" style={overlayStyle(mdPos, mdFontSize)}>
-                    {mdReading}
-                  </div>
-                )}
-
-                {/* ── MD Unit label overlay (independent) ── */}
-                {mdReading && showMdUnit && activeTab === "md" && (
-                  <div className="absolute pointer-events-none" style={overlayStyle(mdUnitPos, mdUnitSize)}>
-                    kW
-                  </div>
-                )}
-              </div>
-
-              <div className="flex gap-2 mt-2.5">
-                <button
-                  onClick={handleSaveToGallery}
-                  disabled={savingImg || whatsappSharing || (!kwhReading && !mdReading)}
-                  className="flex-1 py-2.5 rounded-xl text-white text-sm font-bold flex items-center justify-center gap-2 active:scale-[0.98] transition-all disabled:opacity-40"
-                  style={{ background: "linear-gradient(135deg,#138808,#0d6b06)", boxShadow: "0 3px 12px rgba(19,136,8,0.35)" }}
-                >
-                  {savingImg ? (
-                    <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</>
-                  ) : (
-                    <><Download className="w-4 h-4" /> Gallery</>
-                  )}
-                </button>
-
-                <button
-                  onClick={handleWhatsAppShare}
-                  disabled={whatsappSharing || savingImg || (!kwhReading && !mdReading)}
-                  className="flex-1 py-2.5 rounded-xl text-white text-sm font-bold flex items-center justify-center gap-2 active:scale-[0.98] transition-all disabled:opacity-40"
-                  style={{ background: "linear-gradient(135deg,#25D366,#128C7E)", boxShadow: "0 3px 12px rgba(37,211,102,0.4)" }}
-                >
-                  {whatsappSharing ? (
-                    <><Loader2 className="w-4 h-4 animate-spin" /> Sharing...</>
-                  ) : (
-                    <>
-                      <svg viewBox="0 0 24 24" className="w-4 h-4 fill-white shrink-0" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
-                        <path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.554 4.118 1.529 5.85L.057 23.272c-.073.27.007.556.209.737.149.133.34.2.534.2a.77.77 0 0 0 .218-.032l5.584-1.503A11.934 11.934 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.785 9.785 0 0 1-4.988-1.363l-.357-.214-3.316.893.877-3.224-.233-.371A9.755 9.755 0 0 1 2.182 12C2.182 6.578 6.578 2.182 12 2.182S21.818 6.578 21.818 12 17.422 21.818 12 21.818z"/>
-                      </svg>
-                      WhatsApp
-                    </>
-                  )}
-                </button>
-              </div>
-            </>
-          ) : (
-            <div className="rounded-2xl border border-border flex items-center justify-center py-16 bg-white">
-              <p className="text-sm text-muted-foreground text-center px-6">
-                Is vendor ke liye abhi koi image available nahi hai.
-              </p>
-            </div>
-          )}
-
-          {activeImages.length > 1 && (
-            <div className="flex items-center justify-center gap-3 mt-2">
-              <button onClick={() => setImgIndex((i) => Math.max(0, i - 1))} disabled={imgIndex === 0}
-                className="w-8 h-8 rounded-full border border-border bg-white flex items-center justify-center text-foreground disabled:opacity-30 hover:bg-muted transition-colors">
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <span className="text-xs text-muted-foreground">{imgIndex + 1} / {activeImages.length}</span>
-              <button onClick={() => setImgIndex((i) => Math.min(activeImages.length - 1, i + 1))} disabled={imgIndex === activeImages.length - 1}
-                className="w-8 h-8 rounded-full border border-border bg-white flex items-center justify-center text-foreground disabled:opacity-30 hover:bg-muted transition-colors">
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Panel tabs */}
-        <div className="mx-4 mt-2 flex rounded-xl border border-border overflow-hidden">
-          {(["filters", "adjustments"] as PanelType[]).map((p) => (
-            <button key={p} onClick={() => setActivePanel(p)}
-              className={cn("flex-1 py-2.5 text-sm font-semibold text-center transition-colors",
-                activePanel === p ? "bg-white" : "text-muted-foreground bg-muted/40")}
-              style={activePanel === p ? { color: "#FF9933" } : {}}>
-              {p === "filters" ? "Filters" : "Adjustments"}
+        {/* Tab selector */}
+        <div className="mx-4 mt-3 flex rounded-xl border border-border overflow-hidden">
+          {(["kwh", "md"] as TabType[]).map((tab) => (
+            <button key={tab} onClick={() => handleTabChange(tab)}
+              className={cn("flex-1 py-2.5 text-sm font-bold text-center transition-colors",
+                activeTab === tab ? "text-white" : "text-muted-foreground bg-muted/40")}
+              style={activeTab === tab ? { background: "linear-gradient(135deg,#FF9933,#e8831a)" } : {}}>
+              {tab === "kwh" ? "kWh Reading" : "MD Reading"}
             </button>
           ))}
         </div>
 
-        {activePanel === "filters" && (
-          <div className="mx-4 mt-3 p-4 rounded-xl border border-border bg-white">
-            <p className="text-xs font-bold tracking-widest text-muted-foreground text-center mb-4">IMAGE FILTERS</p>
-            <div className="flex flex-col gap-1">
-              <SliderRow label="Contrast"   value={filters.contrast}   min={0}   max={200} onChange={updateFilter("contrast")}   onReset={resetFilter("contrast")} />
-              <SliderRow label="Brightness" value={filters.brightness} min={0}   max={200} onChange={updateFilter("brightness")} onReset={resetFilter("brightness")} />
-              <SliderRow label="Saturation" value={filters.saturation} min={0}   max={200} onChange={updateFilter("saturation")} onReset={resetFilter("saturation")} />
-              <SliderRow label="Grayscale"  value={filters.grayscale}  min={0}   max={100} onChange={updateFilter("grayscale")}  onReset={resetFilter("grayscale")} />
-              <SliderRow label="Sepia"      value={filters.sepia}      min={0}   max={100} onChange={updateFilter("sepia")}      onReset={resetFilter("sepia")} />
-              <SliderRow label="Invert"     value={filters.invert}     min={0}   max={100} onChange={updateFilter("invert")}     onReset={resetFilter("invert")} />
-              <SliderRow label="Hue Rotate" value={filters.hueRotate}  min={0}   max={360} step={1} unit="deg" onChange={updateFilter("hueRotate")} onReset={resetFilter("hueRotate")} />
-              <SliderRow label="Blur"       value={filters.blur}       min={0}   max={20}  step={0.1} unit="px" onChange={updateFilter("blur")} onReset={resetFilter("blur")} />
-            </div>
-            <button onClick={() => setFilters({ ...DEFAULT_FILTERS })}
-              className="w-full mt-4 py-2.5 rounded-xl text-white text-sm font-semibold active:scale-[0.98] transition-all"
-              style={{ background: "#FF9933" }}>
-              Reset Filters
-            </button>
-          </div>
-        )}
-
-        {activePanel === "adjustments" && (
-          <div className="mx-4 mt-3 p-4 rounded-xl border border-border bg-white">
-
-            {/* Element selector inside adjustments (shown when unit is ON) */}
-            {showUnit && (
-              <div className="flex gap-2 mb-3">
-                <button
-                  onClick={() => setActiveElement("number")}
-                  className="flex-1 py-1 text-xs font-bold rounded-lg border transition-all"
-                  style={activeElement === "number"
-                    ? { background: "#FF9933", color: "#fff", borderColor: "#FF9933" }
-                    : { background: "#f5f5f5", color: "#888", borderColor: "#e0e0e0" }}
-                >
-                  📊 Number
-                </button>
-                <button
-                  onClick={() => setActiveElement("unit")}
-                  className="flex-1 py-1 text-xs font-bold rounded-lg border transition-all"
-                  style={activeElement === "unit"
-                    ? { background: "#138808", color: "#fff", borderColor: "#138808" }
-                    : { background: "#f5f5f5", color: "#888", borderColor: "#e0e0e0" }}
-                >
-                  {activeTab === "kwh" ? "kWh" : "kW"} Label
-                </button>
-              </div>
-            )}
-
-            <p className="text-xs font-bold tracking-widest text-muted-foreground text-center mb-1">
-              POSITION —{" "}
-              <span style={{ color: activeElement === "number" ? "#FF9933" : "#138808" }}>
-                {activeElement === "number"
-                  ? `${activeTab === "kwh" ? "kWh" : "MD"} Number`
-                  : `${activeTab === "kwh" ? "kWh" : "kW"} Label`}
-              </span>
-            </p>
-            <p className="text-xs text-muted-foreground text-center mb-4">
-              Arrow buttons ya image pe drag karein
-            </p>
-
-            <div className="flex flex-col items-center gap-2">
-              <button onClick={() => move("up")} className="w-12 h-12 rounded-xl text-white flex items-center justify-center text-xl font-bold active:scale-95 transition-all shadow"
-                style={{ background: activeElement === "number" ? "#FF9933" : "#138808" }}>↑</button>
-              <div className="flex gap-2">
-                <button onClick={() => move("left")} className="w-12 h-12 rounded-xl text-white flex items-center justify-center text-xl font-bold active:scale-95 transition-all shadow"
-                  style={{ background: activeElement === "number" ? "#FF9933" : "#138808" }}>←</button>
-                <button
-                  onClick={() => activeElement === "number" ? setActivePos({ x: 0, y: 0 }) : setActiveUnitPos({ x: 40, y: 20 })}
-                  className="w-12 h-12 rounded-xl bg-muted border border-border text-foreground flex items-center justify-center hover:bg-border transition-all">
-                  <RotateCcw className="w-4 h-4" />
-                </button>
-                <button onClick={() => move("right")} className="w-12 h-12 rounded-xl text-white flex items-center justify-center text-xl font-bold active:scale-95 transition-all shadow"
-                  style={{ background: activeElement === "number" ? "#FF9933" : "#138808" }}>→</button>
-              </div>
-              <button onClick={() => move("down")} className="w-12 h-12 rounded-xl text-white flex items-center justify-center text-xl font-bold active:scale-95 transition-all shadow"
-                style={{ background: activeElement === "number" ? "#FF9933" : "#138808" }}>↓</button>
-            </div>
-
-            <div className="mt-5 flex flex-col gap-3">
-              {/* Font size — dynamic for number or unit */}
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-foreground w-24 shrink-0">
-                  {activeElement === "number" ? "Number Size:" : "Label Size:"}
-                </span>
-                <button onClick={() => setCtrlFontSize((s) => Math.max(10, s - 2))} className="w-6 h-6 rounded border border-border bg-white text-xs font-bold flex items-center justify-center hover:bg-muted transition-colors shrink-0">-</button>
-                <div className="flex-1">
-                  <input type="range" min={10} max={ctrlFontMax} step={1} value={ctrlFontSize}
-                    onChange={(e) => setCtrlFontSize(Number(e.target.value))}
-                    className="w-full h-1.5 appearance-none rounded-full cursor-pointer"
-                    style={{ background: `linear-gradient(to right, ${activeElement === "number" ? "#FF9933" : "#138808"} ${((ctrlFontSize - 10) / (ctrlFontMax - 10)) * 100}%, #e5e7eb ${((ctrlFontSize - 10) / (ctrlFontMax - 10)) * 100}%)` }}
-                  />
-                </div>
-                <button onClick={() => setCtrlFontSize((s) => Math.min(ctrlFontMax, s + 2))} className="w-6 h-6 rounded border border-border bg-white text-xs font-bold flex items-center justify-center hover:bg-muted transition-colors shrink-0">+</button>
-                <span className="w-10 text-xs text-muted-foreground text-right shrink-0">{ctrlFontSize}px</span>
-              </div>
-
-              {/* Color — applies to all text */}
-              <div className="flex items-center gap-3">
-                <span className="text-xs font-medium text-foreground w-24 shrink-0">Text Color:</span>
-                <input type="color" value={textColor} onChange={(e) => setTextColor(e.target.value)}
-                  className="w-8 h-8 rounded-lg border border-border cursor-pointer" />
-                <span className="text-xs text-muted-foreground">{textColor}</span>
-                <button onClick={() => setTextColor("#000000")} className="text-xs text-muted-foreground hover:text-foreground ml-auto">Reset</button>
-              </div>
-
-              {/* Opacity — applies to all text */}
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-foreground w-24 shrink-0">Opacity:</span>
-                <div className="flex-1">
-                  <input type="range" min={10} max={100} step={5} value={textOpacity}
-                    onChange={(e) => setTextOpacity(Number(e.target.value))}
-                    className="w-full h-1.5 appearance-none rounded-full cursor-pointer"
-                    style={{ background: `linear-gradient(to right, #FF9933 ${textOpacity}%, #e5e7eb ${textOpacity}%)` }}
-                  />
-                </div>
-                <span className="w-10 text-xs text-muted-foreground text-right shrink-0">{textOpacity}%</span>
-              </div>
-            </div>
-
-            <button onClick={resetAdjustments}
-              className="w-full mt-4 py-2.5 rounded-xl border border-border text-foreground text-sm font-semibold hover:bg-muted transition-all active:scale-[0.98]">
-              Reset All Adjustments
-            </button>
-          </div>
-        )}
-
-        <div className="mx-4 mt-4 flex gap-2">
-          <button
-            onClick={handleSave}
-            disabled={!kwhReading && !mdReading}
-            className="flex-1 py-3 rounded-xl text-white text-sm font-bold flex items-center justify-center gap-2 active:scale-[0.98] transition-all disabled:opacity-40"
-            style={{ background: saved ? "#138808" : "linear-gradient(135deg,#FF9933,#e8831a)", boxShadow: "0 3px 12px rgba(255,153,51,0.35)" }}
-          >
-            {saved ? (
-              <><CheckCircle className="w-4 h-4" /> Reading Saved!</>
-            ) : (
-              <><Save className="w-4 h-4" /> Save Reading</>
-            )}
-          </button>
+        {/* Input */}
+        <div className="mx-4 mt-3">
+          <input
+            type="number"
+            inputMode="decimal"
+            placeholder={activeTab === "kwh" ? "kWh reading daalen..." : "MD reading daalen..."}
+            value={activeTab === "kwh" ? kwhReading : mdReading}
+            onChange={(e) => activeTab === "kwh" ? setKwhReading(e.target.value) : setMdReading(e.target.value)}
+            className="w-full px-4 py-3 rounded-xl border border-border bg-white text-foreground text-base font-mono focus:outline-none focus:ring-2"
+            style={{ "--tw-ring-color": "#FF9933" } as React.CSSProperties}
+          />
         </div>
+
+        {currentImage ? (
+          <>
+            {/* Image with overlays */}
+            <div ref={imgContainerRef} className="mx-4 mt-3 rounded-2xl overflow-hidden relative select-none"
+              style={{ background: "#111", touchAction: "none" }}>
+              <img src={currentImage} alt={vendor} className="w-full h-auto block" style={imageStyle} draggable={false} />
+
+              {/* Reading number overlay */}
+              {activeReading && (
+                <span className="absolute pointer-events-none" style={overlayStyle(activePos, activeFontSize)}>
+                  {activeReading}
+                </span>
+              )}
+
+              {/* Unit label overlay */}
+              {showUnit && (
+                <span className="absolute pointer-events-none" style={overlayStyle(activeUnitPos, activeUnitSize)}>
+                  {activeTab === "kwh" ? "kWh" : "kW"}
+                </span>
+              )}
+
+              {/* MD 1 label overlay */}
+              {showMd1 && (
+                <span className="absolute pointer-events-none" style={overlayStyle(activeMd1Pos, activeMd1Size)}>
+                  MD 1
+                </span>
+              )}
+            </div>
+
+            {/* Image nav */}
+            {activeImages.length > 1 && (
+              <div className="flex items-center justify-center gap-3 mt-2">
+                <button onClick={() => setImgIndex((i) => Math.max(0, i - 1))} disabled={imgIndex === 0}
+                  className="w-8 h-8 rounded-full border border-border bg-white flex items-center justify-center disabled:opacity-30 hover:bg-muted transition-colors">
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="text-xs text-muted-foreground">{imgIndex + 1} / {activeImages.length}</span>
+                <button onClick={() => setImgIndex((i) => Math.min(activeImages.length - 1, i + 1))} disabled={imgIndex === activeImages.length - 1}
+                  className="w-8 h-8 rounded-full border border-border bg-white flex items-center justify-center disabled:opacity-30 hover:bg-muted transition-colors">
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
+            {/* Toggle buttons row */}
+            <div className="mx-4 mt-3 flex gap-2">
+              <button
+                onClick={() => setShowUnit((v) => !v)}
+                className="flex-1 py-2 rounded-xl text-xs font-bold border transition-all"
+                style={showUnit
+                  ? { background: "#138808", color: "#fff", borderColor: "#138808" }
+                  : { background: "#f5f5f5", color: "#555", borderColor: "#ddd" }}>
+                {showUnit ? "✓" : "+"} {activeTab === "kwh" ? "kWh" : "kW"} Label
+              </button>
+              <button
+                onClick={() => setShowMd1((v) => !v)}
+                className="flex-1 py-2 rounded-xl text-xs font-bold border transition-all"
+                style={showMd1
+                  ? { background: "#1d4ed8", color: "#fff", borderColor: "#1d4ed8" }
+                  : { background: "#f5f5f5", color: "#555", borderColor: "#ddd" }}>
+                {showMd1 ? "✓" : "+"} MD 1 Label
+              </button>
+            </div>
+
+            {/* Action buttons */}
+            <div className="mx-4 mt-3 flex gap-2">
+              <button onClick={handleSaveToGallery} disabled={savingImg}
+                className="w-10 h-10 rounded-xl border border-border bg-white flex items-center justify-center shrink-0 disabled:opacity-40 hover:bg-muted transition-colors">
+                {savingImg ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+              </button>
+              <button onClick={handleWhatsAppShare} disabled={whatsappSharing || savingImg || (!kwhReading && !mdReading)}
+                className="flex-1 py-2.5 rounded-xl text-white text-sm font-bold flex items-center justify-center gap-2 active:scale-[0.98] transition-all disabled:opacity-40"
+                style={{ background: "linear-gradient(135deg,#25D366,#128C7E)", boxShadow: "0 3px 12px rgba(37,211,102,0.4)" }}>
+                {whatsappSharing ? <><Loader2 className="w-4 h-4 animate-spin" /> Sharing...</> : (
+                  <><svg viewBox="0 0 24 24" className="w-4 h-4 fill-white shrink-0" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+                    <path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.554 4.118 1.529 5.85L.057 23.272c-.073.27.007.556.209.737.149.133.34.2.534.2a.77.77 0 0 0 .218-.032l5.584-1.503A11.934 11.934 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.785 9.785 0 0 1-4.988-1.363l-.357-.214-3.316.893.877-3.224-.233-.371A9.755 9.755 0 0 1 2.182 12C2.182 6.578 6.578 2.182 12 2.182S21.818 6.578 21.818 12 17.422 21.818 12 21.818z"/>
+                  </svg>WhatsApp</>
+                )}
+              </button>
+            </div>
+
+            {/* Panel tabs */}
+            <div className="mx-4 mt-2 flex rounded-xl border border-border overflow-hidden">
+              {(["filters", "adjustments"] as PanelType[]).map((p) => (
+                <button key={p} onClick={() => setActivePanel(p)}
+                  className={cn("flex-1 py-2.5 text-sm font-semibold text-center transition-colors",
+                    activePanel === p ? "bg-white" : "text-muted-foreground bg-muted/40")}
+                  style={activePanel === p ? { color: "#FF9933" } : {}}>
+                  {p === "filters" ? "Filters" : "Adjustments"}
+                </button>
+              ))}
+            </div>
+
+            {activePanel === "filters" && (
+              <div className="mx-4 mt-3 p-4 rounded-xl border border-border bg-white">
+                <p className="text-xs font-bold tracking-widest text-muted-foreground text-center mb-4">IMAGE FILTERS</p>
+                <div className="flex flex-col gap-1">
+                  <SliderRow label="Contrast"   value={filters.contrast}   min={0} max={200} onChange={updateFilter("contrast")}   onReset={resetFilter("contrast")} />
+                  <SliderRow label="Brightness" value={filters.brightness} min={0} max={200} onChange={updateFilter("brightness")} onReset={resetFilter("brightness")} />
+                  <SliderRow label="Saturation" value={filters.saturation} min={0} max={200} onChange={updateFilter("saturation")} onReset={resetFilter("saturation")} />
+                  <SliderRow label="Grayscale"  value={filters.grayscale}  min={0} max={100} onChange={updateFilter("grayscale")}  onReset={resetFilter("grayscale")} />
+                  <SliderRow label="Sepia"      value={filters.sepia}      min={0} max={100} onChange={updateFilter("sepia")}      onReset={resetFilter("sepia")} />
+                  <SliderRow label="Invert"     value={filters.invert}     min={0} max={100} onChange={updateFilter("invert")}     onReset={resetFilter("invert")} />
+                  <SliderRow label="Hue Rotate" value={filters.hueRotate}  min={0} max={360} step={1} unit="deg" onChange={updateFilter("hueRotate")} onReset={resetFilter("hueRotate")} />
+                  <SliderRow label="Blur"       value={filters.blur}       min={0} max={20}  step={0.1} unit="px" onChange={updateFilter("blur")} onReset={resetFilter("blur")} />
+                </div>
+                <button onClick={() => setFilters({ ...DEFAULT_FILTERS })}
+                  className="w-full mt-4 py-2.5 rounded-xl text-white text-sm font-semibold active:scale-[0.98] transition-all"
+                  style={{ background: "#FF9933" }}>
+                  Reset Filters
+                </button>
+              </div>
+            )}
+
+            {activePanel === "adjustments" && (
+              <div className="mx-4 mt-3 p-4 rounded-xl border border-border bg-white">
+
+                {/* Element selector */}
+                <div className="flex gap-2 mb-3">
+                  <button onClick={() => setActiveElement("number")}
+                    className="flex-1 py-1 text-xs font-bold rounded-lg border transition-all"
+                    style={activeElement === "number"
+                      ? { background: "#FF9933", color: "#fff", borderColor: "#FF9933" }
+                      : { background: "#f5f5f5", color: "#888", borderColor: "#e0e0e0" }}>
+                    📊 Number
+                  </button>
+                  {showUnit && (
+                    <button onClick={() => setActiveElement("unit")}
+                      className="flex-1 py-1 text-xs font-bold rounded-lg border transition-all"
+                      style={activeElement === "unit"
+                        ? { background: "#138808", color: "#fff", borderColor: "#138808" }
+                        : { background: "#f5f5f5", color: "#888", borderColor: "#e0e0e0" }}>
+                      {activeTab === "kwh" ? "kWh" : "kW"}
+                    </button>
+                  )}
+                  {showMd1 && (
+                    <button onClick={() => setActiveElement("md1")}
+                      className="flex-1 py-1 text-xs font-bold rounded-lg border transition-all"
+                      style={activeElement === "md1"
+                        ? { background: "#1d4ed8", color: "#fff", borderColor: "#1d4ed8" }
+                        : { background: "#f5f5f5", color: "#888", borderColor: "#e0e0e0" }}>
+                      MD 1
+                    </button>
+                  )}
+                </div>
+
+                <p className="text-xs font-bold tracking-widest text-muted-foreground text-center mb-1">
+                  POSITION — <span style={{ color: ctrlColor }}>
+                    {activeElement === "number" ? `${activeTab === "kwh" ? "kWh" : "MD"} Number` : activeElement === "unit" ? `${activeTab === "kwh" ? "kWh" : "kW"} Label` : "MD 1 Label"}
+                  </span>
+                </p>
+                <p className="text-xs text-muted-foreground text-center mb-4">Arrow buttons ya image pe drag karein</p>
+
+                <div className="flex flex-col items-center gap-2">
+                  <button onClick={() => move("up")} className="w-12 h-12 rounded-xl text-white flex items-center justify-center text-xl font-bold active:scale-95 transition-all shadow"
+                    style={{ background: ctrlColor }}>↑</button>
+                  <div className="flex gap-2">
+                    <button onClick={() => move("left")} className="w-12 h-12 rounded-xl text-white flex items-center justify-center text-xl font-bold active:scale-95 transition-all shadow"
+                      style={{ background: ctrlColor }}>←</button>
+                    <button
+                      onClick={() => {
+                        if (activeElement === "number") setActivePos({ x: 0, y: 0 });
+                        else if (activeElement === "unit") setActiveUnitPos({ x: 40, y: 20 });
+                        else setActiveMd1Pos({ x: -40, y: 20 });
+                      }}
+                      className="w-12 h-12 rounded-xl bg-muted border border-border text-foreground flex items-center justify-center hover:bg-border transition-all">
+                      <RotateCcw className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => move("right")} className="w-12 h-12 rounded-xl text-white flex items-center justify-center text-xl font-bold active:scale-95 transition-all shadow"
+                      style={{ background: ctrlColor }}>→</button>
+                  </div>
+                  <button onClick={() => move("down")} className="w-12 h-12 rounded-xl text-white flex items-center justify-center text-xl font-bold active:scale-95 transition-all shadow"
+                    style={{ background: ctrlColor }}>↓</button>
+                </div>
+
+                <div className="mt-5 flex flex-col gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-foreground w-24 shrink-0">
+                      {activeElement === "number" ? "Number Size:" : activeElement === "unit" ? "Label Size:" : "MD 1 Size:"}
+                    </span>
+                    <button onClick={() => setCtrlFontSize((s) => Math.max(10, s - 2))} className="w-6 h-6 rounded border border-border bg-white text-xs font-bold flex items-center justify-center hover:bg-muted transition-colors shrink-0">-</button>
+                    <div className="flex-1">
+                      <input type="range" min={10} max={ctrlFontMax} step={1} value={ctrlFontSize}
+                        onChange={(e) => setCtrlFontSize(Number(e.target.value))}
+                        className="w-full h-1.5 appearance-none rounded-full cursor-pointer"
+                        style={{ background: `linear-gradient(to right, ${ctrlColor} ${((ctrlFontSize - 10) / (ctrlFontMax - 10)) * 100}%, #e5e7eb ${((ctrlFontSize - 10) / (ctrlFontMax - 10)) * 100}%)` }}
+                      />
+                    </div>
+                    <button onClick={() => setCtrlFontSize((s) => Math.min(ctrlFontMax, s + 2))} className="w-6 h-6 rounded border border-border bg-white text-xs font-bold flex items-center justify-center hover:bg-muted transition-colors shrink-0">+</button>
+                    <span className="w-10 text-xs text-muted-foreground text-right shrink-0">{ctrlFontSize}px</span>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-medium text-foreground w-24 shrink-0">Text Color:</span>
+                    <input type="color" value={textColor} onChange={(e) => setTextColor(e.target.value)}
+                      className="w-8 h-8 rounded-lg border border-border cursor-pointer" />
+                    <span className="text-xs text-muted-foreground">{textColor}</span>
+                    <button onClick={() => setTextColor("#000000")} className="text-xs text-muted-foreground hover:text-foreground ml-auto">Reset</button>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-foreground w-24 shrink-0">Opacity:</span>
+                    <div className="flex-1">
+                      <input type="range" min={10} max={100} step={5} value={textOpacity}
+                        onChange={(e) => setTextOpacity(Number(e.target.value))}
+                        className="w-full h-1.5 appearance-none rounded-full cursor-pointer"
+                        style={{ background: `linear-gradient(to right, #FF9933 ${textOpacity}%, #e5e7eb ${textOpacity}%)` }}
+                      />
+                    </div>
+                    <span className="w-10 text-xs text-muted-foreground text-right shrink-0">{textOpacity}%</span>
+                  </div>
+                </div>
+
+                <button onClick={resetAdjustments}
+                  className="w-full mt-4 py-2.5 rounded-xl border border-border text-foreground text-sm font-semibold hover:bg-muted transition-all active:scale-[0.98]">
+                  Reset All Adjustments
+                </button>
+              </div>
+            )}
+
+            <div className="mx-4 mt-4 flex gap-2">
+              <button onClick={handleSave} disabled={!kwhReading && !mdReading}
+                className="flex-1 py-3 rounded-xl text-white text-sm font-bold flex items-center justify-center gap-2 active:scale-[0.98] transition-all disabled:opacity-40"
+                style={{ background: saved ? "#138808" : "linear-gradient(135deg,#FF9933,#e8831a)", boxShadow: "0 3px 12px rgba(255,153,51,0.35)" }}>
+                {saved ? <><CheckCircle className="w-4 h-4" /> Reading Saved!</> : <><Save className="w-4 h-4" /> Save Reading</>}
+              </button>
+            </div>
+          </>
+        ) : (
+          <div className="mx-4 mt-3 rounded-2xl border border-border flex items-center justify-center py-16 bg-white">
+            <p className="text-sm text-muted-foreground text-center px-6">Is vendor ke liye abhi koi image available nahi hai.</p>
+          </div>
+        )}
       </div>
     </div>
   );
