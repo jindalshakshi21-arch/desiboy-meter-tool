@@ -11,7 +11,6 @@ export PATH="$HOME/.npm-global/bin:$PATH"
 echo ">>> pnpm: $(pnpm --version)"
 
 echo ">>> Installing ALL dependencies (including devDependencies)..."
-# NODE_ENV=production causes pnpm to skip devDeps (like vite), so override it
 NODE_ENV=development pnpm install --no-frozen-lockfile
 
 echo ">>> Building frontend..."
@@ -23,5 +22,13 @@ cp -r artifacts/toolhub/dist/. artifacts/api-server/public/
 
 echo ">>> Building backend..."
 NODE_ENV=production pnpm --filter @workspace/api-server run build
+
+echo ">>> Running database migrations..."
+if [ -n "$DATABASE_URL" ]; then
+  NODE_ENV=production pnpm --filter @workspace/db run push-force
+  echo ">>> Database schema applied!"
+else
+  echo ">>> WARNING: DATABASE_URL not set, skipping migrations"
+fi
 
 echo ">>> Build complete!"
