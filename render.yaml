@@ -4,11 +4,12 @@ services:
     env: node
     plan: free
     buildCommand: >
-      npm install -g pnpm &&
+      corepack enable &&
+      corepack prepare pnpm@latest --activate &&
       pnpm install --frozen-lockfile &&
       PORT=3000 BASE_PATH=/ pnpm --filter @workspace/toolhub run build &&
       mkdir -p artifacts/api-server/public &&
-      cp -r artifacts/toolhub/dist/public/. artifacts/api-server/public/ &&
+      cp -r artifacts/toolhub/dist/. artifacts/api-server/public/ &&
       pnpm --filter @workspace/api-server run build
     startCommand: node artifacts/api-server/dist/index.mjs
     healthCheckPath: /api/healthz
