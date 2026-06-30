@@ -18,7 +18,8 @@ PORT=3000 BASE_PATH=/ NODE_ENV=production pnpm --filter @workspace/toolhub run b
 
 echo ">>> Copying frontend to api-server public..."
 mkdir -p artifacts/api-server/public
-cp -r artifacts/toolhub/dist/. artifacts/api-server/public/
+# vite outputs to dist/public/ (not dist/) per vite.config.ts outDir setting
+cp -r artifacts/toolhub/dist/public/. artifacts/api-server/public/
 
 echo ">>> Building backend..."
 NODE_ENV=production pnpm --filter @workspace/api-server run build
