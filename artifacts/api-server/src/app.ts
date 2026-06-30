@@ -4,8 +4,8 @@ import pinoHttp from "pino-http";
 import { existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import router from "./routes";
-import { logger } from "./lib/logger";
+import router from "./routes/index.js";
+import { logger } from "./lib/logger.js";
 
 const app: Express = express();
 
@@ -40,7 +40,8 @@ const __dirname = dirname(__filename);
 const staticDir = resolve(__dirname, "..", "public");
 if (existsSync(staticDir)) {
   app.use(express.static(staticDir));
-  app.get("*", (_req, res) => {
+  // Express 5 requires named wildcard parameter (not bare *)
+  app.get("/{*splat}", (_req, res) => {
     res.sendFile(resolve(staticDir, "index.html"));
   });
 }
