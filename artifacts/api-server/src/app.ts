@@ -14,16 +14,10 @@ app.use(
     logger,
     serializers: {
       req(req) {
-        return {
-          id: req.id,
-          method: req.method,
-          url: req.url?.split("?")[0],
-        };
+        return { id: req.id, method: req.method, url: req.url?.split("?")[0] };
       },
       res(res) {
-        return {
-          statusCode: res.statusCode,
-        };
+        return { statusCode: res.statusCode };
       },
     },
   }),
@@ -34,13 +28,21 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);
 
-// Serve built frontend static files when deployed as a single service (e.g. Render)
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const staticDir = resolve(__dirname, "..", "public");
 if (existsSync(staticDir)) {
-  app.use(express.static(staticDir));
-  // Express 5 requires named wildcard parameter (not bare *)
+  // Serve meter images with 7-day cache so repeat visits are instant
+  app.use(
+    "/meters",
+    express.static(resolve(staticDir, "meters"), {
+      maxAge: "7d",
+      immutable: true,
+    }),
+  );
+  // Serve all other static files with 1-day cache
+  app.use(express.static(staticDir, { maxAge: "1d" }));
+  // Express 5 requires named wildcard parameter
   app.get("/{*splat}", (_req, res) => {
     res.sendFile(resolve(staticDir, "index.html"));
   });
