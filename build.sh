@@ -10,17 +10,18 @@ npm install -g pnpm@9
 export PATH="$HOME/.npm-global/bin:$PATH"
 echo ">>> pnpm: $(pnpm --version)"
 
-echo ">>> Installing dependencies (no-frozen-lockfile to handle config mismatch)..."
-pnpm install --no-frozen-lockfile
+echo ">>> Installing ALL dependencies (including devDependencies)..."
+# NODE_ENV=production causes pnpm to skip devDeps (like vite), so override it
+NODE_ENV=development pnpm install --no-frozen-lockfile
 
 echo ">>> Building frontend..."
-PORT=3000 BASE_PATH=/ pnpm --filter @workspace/toolhub run build
+PORT=3000 BASE_PATH=/ NODE_ENV=production pnpm --filter @workspace/toolhub run build
 
 echo ">>> Copying frontend to api-server public..."
 mkdir -p artifacts/api-server/public
 cp -r artifacts/toolhub/dist/. artifacts/api-server/public/
 
 echo ">>> Building backend..."
-pnpm --filter @workspace/api-server run build
+NODE_ENV=production pnpm --filter @workspace/api-server run build
 
 echo ">>> Build complete!"
