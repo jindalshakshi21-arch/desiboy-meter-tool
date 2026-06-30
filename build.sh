@@ -2,12 +2,11 @@
 set -e
 
 echo ">>> Node version: $(node --version)"
-echo ">>> npm version: $(npm --version)"
 
-echo ">>> Installing pnpm via npm prefix (writable)..."
+echo ">>> Installing pnpm@9 (matches lockfile version 9.0)..."
 export NPM_CONFIG_PREFIX="$HOME/.npm-global"
-mkdir -p "$HOME/.npm-global"
-npm install -g pnpm
+mkdir -p "$HOME/.npm-global/bin"
+npm install -g pnpm@9
 export PATH="$HOME/.npm-global/bin:$PATH"
 
 echo ">>> pnpm version: $(pnpm --version)"
