@@ -3,14 +3,7 @@ services:
     name: desiboy-meter-tool
     env: node
     plan: free
-    buildCommand: >
-      corepack enable &&
-      corepack prepare pnpm@latest --activate &&
-      pnpm install --frozen-lockfile &&
-      PORT=3000 BASE_PATH=/ pnpm --filter @workspace/toolhub run build &&
-      mkdir -p artifacts/api-server/public &&
-      cp -r artifacts/toolhub/dist/. artifacts/api-server/public/ &&
-      pnpm --filter @workspace/api-server run build
+    buildCommand: bash build.sh
     startCommand: node artifacts/api-server/dist/index.mjs
     healthCheckPath: /api/healthz
     envVars:
