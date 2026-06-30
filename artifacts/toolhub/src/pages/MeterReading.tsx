@@ -71,6 +71,16 @@ interface TouchState {
   startDist: number | null; startFontSize: number | null;
 }
 
+// Common display background colors for quick presets
+const DISPLAY_PRESETS = [
+  { label: "LCD Dark", color: "#1a1a0a" },
+  { label: "LCD Grey", color: "#3a3a2a" },
+  { label: "Black", color: "#000000" },
+  { label: "Dark Green", color: "#0a1a0a" },
+  { label: "Navy", color: "#0a0a1a" },
+  { label: "Silver", color: "#c0c0b0" },
+];
+
 export default function MeterReading() {
   const params = useParams<{ vendor: string }>();
   const [, navigate] = useLocation();
@@ -106,14 +116,15 @@ export default function MeterReading() {
   const [showKwhMd1, setShowKwhMd1] = useState(false);
   const [showMdMd1, setShowMdMd1] = useState(false);
 
-  // White mask overlay to cover existing meter text (resets on navigation)
+  // Display mask overlay — color matches meter LCD background
   const [kwhMaskPos, setKwhMaskPos] = useState({ x: 0, y: 0 });
   const [mdMaskPos, setMdMaskPos] = useState({ x: 0, y: 0 });
-  const [kwhMaskW, setKwhMaskW] = useState(80);
-  const [mdMaskW, setMdMaskW] = useState(80);
+  const [kwhMaskW, setKwhMaskW] = useState(90);
+  const [mdMaskW, setMdMaskW] = useState(90);
   const [showKwhMask, setShowKwhMask] = useState(false);
   const [showMdMask, setShowMdMask] = useState(false);
   const [maskOpacity, setMaskOpacity] = useState(100);
+  const [maskColor, setMaskColor] = useState("#1a1a0a"); // Default: LCD dark background
 
   const [activeElement, setActiveElement] = useState<ActiveElement>("number");
   const [textColor, setTextColor] = useState("#000000");
@@ -159,15 +170,12 @@ export default function MeterReading() {
   const setCtrlPos = activeElement === "number" ? setActivePos : activeElement === "unit" ? setActiveUnitPos : activeElement === "md1" ? setActiveMd1Pos : setActiveMaskPos;
   const setCtrlFontSize = activeElement === "number" ? setActiveFontSize : activeElement === "unit" ? setActiveUnitSize : activeElement === "md1" ? setActiveMd1Size : setActiveMaskW;
   const ctrlFontMax = activeElement === "number" ? 72 : activeElement === "mask" ? 300 : 100;
-  const ctrlFontLabel = activeElement === "number" ? "Number Size:" : activeElement === "mask" ? "Mask Width:" : activeElement === "unit" ? "Label Size:" : "MD 1 Size:";
+  const ctrlFontLabel = activeElement === "number" ? "Number Size:" : activeElement === "mask" ? "Cover Width:" : activeElement === "unit" ? "Label Size:" : "MD 1 Size:";
   const ctrlColor = activeElement === "number" ? "#FF9933" : activeElement === "unit" ? "#138808" : activeElement === "md1" ? "#1d4ed8" : "#6b7280";
 
-  // Reset active element when overlay hidden
   useEffect(() => { if (!showUnit && activeElement === "unit") setActiveElement("number"); }, [showUnit]);
   useEffect(() => { if (!showMd1 && activeElement === "md1") setActiveElement("number"); }, [showMd1]);
   useEffect(() => { if (!showMask && activeElement === "mask") setActiveElement("number"); }, [showMask]);
-
-  // Reset imgLoaded when image changes
   useEffect(() => { setImgLoaded(false); }, [currentImage]);
 
   const handleTabChange = (tab: TabType) => { setActiveTab(tab); setImgIndex(0); };
@@ -258,8 +266,8 @@ export default function MeterReading() {
     setKwhMd1Pos({ x: -40, y: 20 }); setMdMd1Pos({ x: -40, y: 20 });
     setKwhMd1Size(14); setMdMd1Size(14);
     setKwhMaskPos({ x: 0, y: 0 }); setMdMaskPos({ x: 0, y: 0 });
-    setKwhMaskW(80); setMdMaskW(80);
-    setMaskOpacity(100);
+    setKwhMaskW(90); setMdMaskW(90);
+    setMaskOpacity(100); setMaskColor("#1a1a0a");
     setTextColor("#000000"); setTextOpacity(100);
     setActiveElement("number");
   };
@@ -339,7 +347,6 @@ export default function MeterReading() {
       </div>
 
       <div className="flex-1 overflow-y-auto pb-6">
-        {/* Tab selector */}
         <div className="mx-4 mt-3 flex rounded-xl border border-border overflow-hidden">
           {(["kwh", "md"] as TabType[]).map((tab) => (
             <button key={tab} onClick={() => handleTabChange(tab)}
@@ -351,7 +358,6 @@ export default function MeterReading() {
           ))}
         </div>
 
-        {/* Input */}
         <div className="mx-4 mt-3">
           <input type="number" inputMode="decimal"
             placeholder={activeTab === "kwh" ? "kWh reading daalen..." : "MD reading daalen..."}
@@ -364,16 +370,12 @@ export default function MeterReading() {
 
         {currentImage ? (
           <>
-            {/* Image with overlays */}
             <div ref={imgContainerRef} className="mx-4 mt-3 rounded-2xl overflow-hidden relative select-none"
               style={{ background: "#111", touchAction: "none" }}>
 
-              {/* Skeleton loader */}
               {!imgLoaded && (
-                <div className="w-full animate-pulse" style={{ aspectRatio: "4/3", background: "linear-gradient(90deg,#2a2a2a 25%,#3a3a3a 50%,#2a2a2a 75%)", backgroundSize: "200% 100%" }}>
-                  <div className="flex items-center justify-center h-full">
-                    <Loader2 className="w-8 h-8 animate-spin text-orange-400" />
-                  </div>
+                <div className="w-full animate-pulse flex items-center justify-center" style={{ aspectRatio: "4/3", background: "linear-gradient(90deg,#2a2a2a 25%,#3a3a3a 50%,#2a2a2a 75%)" }}>
+                  <Loader2 className="w-8 h-8 animate-spin text-orange-400" />
                 </div>
               )}
 
@@ -384,28 +386,23 @@ export default function MeterReading() {
                 onLoad={() => setImgLoaded(true)}
               />
 
-              {/* Reading number overlay */}
               {imgLoaded && activeReading && (
                 <span className="absolute pointer-events-none" style={overlayStyle(activePos, activeFontSize)}>
                   {activeReading}
                 </span>
               )}
-
-              {/* Unit label overlay */}
               {imgLoaded && showUnit && (
                 <span className="absolute pointer-events-none" style={overlayStyle(activeUnitPos, activeUnitSize)}>
                   {activeTab === "kwh" ? "kWh" : "kW"}
                 </span>
               )}
-
-              {/* MD 1 label overlay */}
               {imgLoaded && showMd1 && (
                 <span className="absolute pointer-events-none" style={overlayStyle(activeMd1Pos, activeMd1Size)}>
                   MD 1
                 </span>
               )}
 
-              {/* White mask overlay to hide existing meter text */}
+              {/* Display color-matched mask */}
               {imgLoaded && showMask && (
                 <div className="absolute pointer-events-none"
                   style={{
@@ -413,17 +410,16 @@ export default function MeterReading() {
                     left: `calc(50% + ${activeMaskPos.x}px)`,
                     transform: "translate(-50%, -50%)",
                     width: `${activeMaskW}px`,
-                    height: `${Math.round(activeMaskW * 0.35)}px`,
-                    background: "white",
+                    height: `${Math.round(activeMaskW * 0.32)}px`,
+                    background: maskColor,
                     opacity: maskOpacity / 100,
-                    borderRadius: "3px",
+                    borderRadius: "2px",
                     userSelect: "none",
                   }}
                 />
               )}
             </div>
 
-            {/* Image nav */}
             {activeImages.length > 1 && (
               <div className="flex items-center justify-center gap-3 mt-2">
                 <button onClick={() => setImgIndex((i) => Math.max(0, i - 1))} disabled={imgIndex === 0}
@@ -438,7 +434,7 @@ export default function MeterReading() {
               </div>
             )}
 
-            {/* Toggle buttons row */}
+            {/* Toggle buttons */}
             <div className="mx-4 mt-3 grid grid-cols-3 gap-2">
               <button onClick={() => setShowUnit((v) => !v)}
                 className="py-2 rounded-xl text-xs font-bold border transition-all"
@@ -452,8 +448,8 @@ export default function MeterReading() {
               </button>
               <button onClick={() => setShowMask((v) => !v)}
                 className="py-2 rounded-xl text-xs font-bold border transition-all"
-                style={showMask ? { background: "#6b7280", color: "#fff", borderColor: "#6b7280" } : { background: "#f5f5f5", color: "#555", borderColor: "#ddd" }}>
-                {showMask ? "✓ Text" : "🫥 Text"}
+                style={showMask ? { background: "#374151", color: "#fff", borderColor: "#374151" } : { background: "#f5f5f5", color: "#555", borderColor: "#ddd" }}>
+                {showMask ? "✓" : "🎨"} Cover
               </button>
             </div>
 
@@ -475,7 +471,6 @@ export default function MeterReading() {
               </button>
             </div>
 
-            {/* Panel tabs */}
             <div className="mx-4 mt-2 flex rounded-xl border border-border overflow-hidden">
               {(["filters", "adjustments"] as PanelType[]).map((p) => (
                 <button key={p} onClick={() => setActivePanel(p)}
@@ -510,7 +505,6 @@ export default function MeterReading() {
 
             {activePanel === "adjustments" && (
               <div className="mx-4 mt-3 p-4 rounded-xl border border-border bg-white">
-                {/* Element selector */}
                 <div className="flex gap-1.5 mb-3 flex-wrap">
                   <button onClick={() => setActiveElement("number")}
                     className="flex-1 py-1 text-xs font-bold rounded-lg border transition-all min-w-[60px]"
@@ -534,15 +528,15 @@ export default function MeterReading() {
                   {showMask && (
                     <button onClick={() => setActiveElement("mask")}
                       className="flex-1 py-1 text-xs font-bold rounded-lg border transition-all min-w-[50px]"
-                      style={activeElement === "mask" ? { background: "#6b7280", color: "#fff", borderColor: "#6b7280" } : { background: "#f5f5f5", color: "#888", borderColor: "#e0e0e0" }}>
-                      🫥 Mask
+                      style={activeElement === "mask" ? { background: "#374151", color: "#fff", borderColor: "#374151" } : { background: "#f5f5f5", color: "#888", borderColor: "#e0e0e0" }}>
+                      🎨 Cover
                     </button>
                   )}
                 </div>
 
                 <p className="text-xs font-bold tracking-widest text-muted-foreground text-center mb-1">
                   POSITION — <span style={{ color: ctrlColor }}>
-                    {activeElement === "number" ? `${activeTab === "kwh" ? "kWh" : "MD"} Number` : activeElement === "unit" ? `${activeTab === "kwh" ? "kWh" : "kW"} Label` : activeElement === "md1" ? "MD 1 Label" : "White Mask"}
+                    {activeElement === "number" ? `${activeTab === "kwh" ? "kWh" : "MD"} Number` : activeElement === "unit" ? `${activeTab === "kwh" ? "kWh" : "kW"} Label` : activeElement === "md1" ? "MD 1 Label" : "Display Cover"}
                   </span>
                 </p>
                 <p className="text-xs text-muted-foreground text-center mb-4">Arrow buttons ya image pe drag karein</p>
@@ -583,18 +577,45 @@ export default function MeterReading() {
                     <span className="w-10 text-xs text-muted-foreground text-right shrink-0">{ctrlFontSize}px</span>
                   </div>
 
+                  {/* Mask-specific controls */}
                   {activeElement === "mask" && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium text-foreground w-24 shrink-0">Mask Opacity:</span>
-                      <div className="flex-1">
-                        <input type="range" min={10} max={100} step={5} value={maskOpacity}
-                          onChange={(e) => setMaskOpacity(Number(e.target.value))}
-                          className="w-full h-1.5 appearance-none rounded-full cursor-pointer"
-                          style={{ background: `linear-gradient(to right, #6b7280 ${maskOpacity}%, #e5e7eb ${maskOpacity}%)` }}
-                        />
+                    <>
+                      {/* Color presets for quick display matching */}
+                      <div>
+                        <p className="text-xs font-medium text-foreground mb-1.5">Display Color Match:</p>
+                        <div className="flex flex-wrap gap-1.5 mb-2">
+                          {DISPLAY_PRESETS.map((preset) => (
+                            <button key={preset.color}
+                              onClick={() => setMaskColor(preset.color)}
+                              className="flex items-center gap-1 px-2 py-1 rounded-lg border text-xs font-medium transition-all"
+                              style={maskColor === preset.color
+                                ? { borderColor: "#FF9933", background: "#fff8f0", color: "#FF9933" }
+                                : { borderColor: "#e0e0e0", background: "#f9f9f9", color: "#555" }}>
+                              <span className="w-3 h-3 rounded-sm inline-block border border-gray-300 shrink-0"
+                                style={{ background: preset.color }} />
+                              {preset.label}
+                            </button>
+                          ))}
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs font-medium text-foreground shrink-0">Custom Color:</span>
+                          <input type="color" value={maskColor} onChange={(e) => setMaskColor(e.target.value)}
+                            className="w-8 h-8 rounded-lg border border-border cursor-pointer" />
+                          <span className="text-xs text-muted-foreground">{maskColor}</span>
+                        </div>
                       </div>
-                      <span className="w-10 text-xs text-muted-foreground text-right shrink-0">{maskOpacity}%</span>
-                    </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium text-foreground w-24 shrink-0">Opacity:</span>
+                        <div className="flex-1">
+                          <input type="range" min={10} max={100} step={5} value={maskOpacity}
+                            onChange={(e) => setMaskOpacity(Number(e.target.value))}
+                            className="w-full h-1.5 appearance-none rounded-full cursor-pointer"
+                            style={{ background: `linear-gradient(to right, #374151 ${maskOpacity}%, #e5e7eb ${maskOpacity}%)` }}
+                          />
+                        </div>
+                        <span className="w-10 text-xs text-muted-foreground text-right shrink-0">{maskOpacity}%</span>
+                      </div>
+                    </>
                   )}
 
                   {activeElement !== "mask" && (
