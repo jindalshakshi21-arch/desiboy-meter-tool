@@ -71,6 +71,13 @@ interface TouchState {
   startDist: number | null; startFontSize: number | null;
 }
 
+// Selectable reading fonts
+const FONT_OPTIONS = [
+  { key: "mono", label: "Default", family: "'Courier New', monospace" },
+  { key: "digital", label: "7-Segment", family: "'DSEG7-Classic', 'Courier New', monospace" },
+] as const;
+type FontKey = typeof FONT_OPTIONS[number]["key"];
+
 // Common display background colors for quick presets
 const DISPLAY_PRESETS = [
   { label: "LCD Dark", color: "#1a1a0a" },
@@ -129,6 +136,7 @@ export default function MeterReading() {
   const [activeElement, setActiveElement] = useState<ActiveElement>("number");
   const [textColor, setTextColor] = useState("#000000");
   const [textOpacity, setTextOpacity] = useState(100);
+  const [fontKey, setFontKey] = useState<FontKey>("mono");
   const [savingImg, setSavingImg] = useState(false);
   const [whatsappSharing, setWhatsappSharing] = useState(false);
 
@@ -269,6 +277,7 @@ export default function MeterReading() {
     setKwhMaskW(90); setMdMaskW(90);
     setMaskOpacity(100); setMaskColor("#1a1a0a");
     setTextColor("#000000"); setTextOpacity(100);
+    setFontKey("mono");
     setActiveElement("number");
   };
 
@@ -319,7 +328,7 @@ export default function MeterReading() {
     fontSize: `${fontSize}px`,
     color: textColor,
     opacity: textOpacity / 100,
-    fontFamily: "'Courier New', monospace",
+    fontFamily: FONT_OPTIONS.find((f) => f.key === fontKey)?.family ?? "'Courier New', monospace",
     textShadow: textColor === "#000000" ? "0 1px 2px rgba(255,255,255,0.3)" : `0 0 8px ${textColor}cc, 0 1px 3px rgba(0,0,0,0.9)`,
     letterSpacing: "0.08em",
     whiteSpace: "nowrap" as const,
@@ -620,6 +629,22 @@ export default function MeterReading() {
 
                   {activeElement !== "mask" && (
                     <>
+                      <div>
+                        <p className="text-xs font-medium text-foreground mb-1.5">Reading Font:</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {FONT_OPTIONS.map((opt) => (
+                            <button key={opt.key}
+                              onClick={() => setFontKey(opt.key)}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all"
+                              style={fontKey === opt.key
+                                ? { borderColor: "#FF9933", background: "#fff8f0", color: "#FF9933" }
+                                : { borderColor: "#e0e0e0", background: "#f9f9f9", color: "#555" }}>
+                              <span style={{ fontFamily: opt.family, fontSize: "13px" }}>88:88</span>
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                       <div className="flex items-center gap-3">
                         <span className="text-xs font-medium text-foreground w-24 shrink-0">Text Color:</span>
                         <input type="color" value={textColor} onChange={(e) => setTextColor(e.target.value)}
