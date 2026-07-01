@@ -30,7 +30,7 @@ export default function WarningBanner() {
         <p className="text-red-200 text-xs leading-relaxed">
           Is app ko chalate rehne ke liye{" "}
           <span className="font-black text-white bg-red-700 rounded px-1">
-            ₹1,800/month
+            ₹2,700/month
           </span>{" "}
           ka server kharch aata hai. Agar payment band hui toh{" "}
           <span className="font-bold text-yellow-300">
